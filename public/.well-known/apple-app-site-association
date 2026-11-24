@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "23FA2QK326.kr.yahwa.app",
+        "paths": ["*"]
+      }
+    ]
+  }
+}
