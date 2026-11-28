@@ -1,5 +1,5 @@
 // 오늘의 밸런스 — 화면 쪽 상태.
-// · 시안 후보(제목 · 표지 캐릭터 · 뒷면): 시연도구에서 바꾼다. 이 브라우저에만 저장돼요.
+// · 시안 후보(제목 · 표지 캐릭터 · 뒷면): 시연도구에서 바꾼다. 저장하지 않아서 링크를 새로 열면 늘 T1 · 정면 · 피크닉으로 시작해요.
 // · 표지를 열었는지: 이번 배치(정오~정오) 동안만 기억한다. 고른 답은 서버(목업)의 몫이라 여기엔 없다.
 import { useSyncExternalStore } from 'react';
 
@@ -12,13 +12,9 @@ export const TITLE_OPTIONS: [BalanceTitle, string][] = [['t1', 'T1 깔끔 굵게
 export const CHAR_OPTIONS: [BalanceChar, string][] = [['7', '7 정면'], ['8', '8 윙크'], ['9', '9 모아 쥐기']];
 export const BACK_OPTIONS: [BalanceBack, string][] = [['picnic', '피크닉'], ['mobile', '밤하늘 모빌'], ['arcade', '오락기']];
 
-const KEY = 'yahwa-demo-balance-look';
 const DEFAULT: BalanceLook = { title: 't1', char: '7', back: 'picnic' };
-function load(): BalanceLook {
-  try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); return v ? { ...DEFAULT, ...v } : DEFAULT; } catch { return DEFAULT; }
-}
 
-let look: BalanceLook = load();
+let look: BalanceLook = DEFAULT;
 let openedKey = '';      // 표지를 연 배치
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
@@ -27,7 +23,6 @@ const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f
 export function getBalanceLook(): BalanceLook { return look; }
 export function setBalanceLook(patch: Partial<BalanceLook>) {
   look = { ...look, ...patch };
-  try { localStorage.setItem(KEY, JSON.stringify(look)); } catch { /* 저장 못 해도 화면은 계속 */ }
   // 후보를 바꾸면 표지부터 다시 본다
   openedKey = '';
   emit();

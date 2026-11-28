@@ -150,6 +150,21 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
     else if (it.kind === 'pending') onPending(it.c.hour);
     else if (it.kind === 'balance' && balance && !balance.opened) balance.onOpen();
   };
+  // 밸런스를 고르면 '같은 쪽 사람을 찾았어요'를 잠깐 보여 준 뒤, 소개받은 사람 카드로 바로 넘어간다
+  const prevPick = useRef(balance?.pick ?? '');
+  const advanceWanted = useRef(false);
+  useEffect(() => {
+    const p = balance?.pick ?? '';
+    if (p && !prevPick.current && indexMemo.index === balanceIndex) advanceWanted.current = true;
+    prevPick.current = p;
+  }, [balance?.pick]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const introIndex = balanceIndex >= 0 && ordered[balanceIndex + 1]?.kind === 'person' && (ordered[balanceIndex + 1] as { p: DiscoveryPerson }).p.extra === 'balance' ? balanceIndex + 1 : -1;
+  useEffect(() => {
+    if (!advanceWanted.current || introIndex < 0) return;
+    advanceWanted.current = false;
+    const t = setTimeout(() => { if (indexMemo.index === balanceIndex) goTo(introIndex); }, 1400);
+    return () => clearTimeout(t);
+  }, [introIndex, balance?.pick]);  // eslint-disable-line react-hooks/exhaustive-deps
   // 시연도구 '밸런스 카드로 가기'
   const focusReq = useBalanceFocusReq();
   useEffect(() => { if (focusReq && balanceIndex >= 0) goTo(balanceIndex); }, [focusReq]);  // eslint-disable-line react-hooks/exhaustive-deps

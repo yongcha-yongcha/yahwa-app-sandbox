@@ -262,7 +262,7 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [deck, batch, pairs, letters, revealedIds, viewedIds, isGuest]);
 
-  // 오늘의 밸런스(1번 인연 다음 칸) — 표지를 열면 뒤집히고, 고르면 같은 쪽을 고른 한 사람이 바로 다음 칸에 온다
+  // 오늘의 밸런스(1번 인연 앞 칸) — 표지를 열면 뒤집히고, 고르면 같은 쪽을 고른 한 사람이 바로 다음 칸에 온다
   const balanceLook = useBalanceLook();
   const balanceOpenedLocal = useBalanceOpened(batchK);
   const myBalance = useMyBalance(batchK);
@@ -271,13 +271,13 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
   const [, bm, bd] = batchK.split('-');
   const balance: BalanceProps = {
     look: balanceLook,
-    opened: balanceOpenedLocal || !!balancePick,
+    opened: balanceOpenedLocal,   // 앱을 새로 열면 늘 표지부터(이미 골랐으면 [열어보기]로 뒤집어 결과를 본다)
     pick: balancePick,
     date: `${Number(bm)}월 ${Number(bd)}일`,
     busy: pickMut.isPending,
     onOpen: () => { if (requireAuth('오늘의 밸런스는 로그인 후 할 수 있어요')) setBalanceOpened(batchK, true); },
     onPick: (k) => pickMut.mutate(k, {
-      onSuccess: (r) => { if (r?.profile_id) previewActions.showToast('같은 쪽을 고른 인연을 소개했어요.', 2200); },
+      onSuccess: (r) => { if (!r?.profile_id) previewActions.showToast('오늘은 같은 쪽 사람을 찾지 못했어요.', 2200); },
       onError: () => previewActions.showToast('잠시 후 다시 시도해주세요', 2200),
     }),
   };

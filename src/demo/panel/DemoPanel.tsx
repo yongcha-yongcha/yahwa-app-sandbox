@@ -77,6 +77,10 @@ export function DemoPanel() {
         <div className="ydp-now">지금 화면 <b>{screenName(screen.tab, screen.overlay, screen.entry)}</b></div>
       </header>
 
+      <div className="ydp-foot ydp-foot-top">
+        <button className="ydp-reset" onClick={() => { if (window.confirm('목업 데이터를 처음 상태로 되돌릴까요? 이 브라우저에서 쓴 글·편지·좋아요가 지워져요.')) { resetDb(); try { localStorage.removeItem('yahwa_welcome_seen'); } catch { /* noop */ } window.location.reload(); } }}>처음 상태로 되돌리기</button>
+        <div className="ydp-note">쓴 글·댓글·좋아요·편지는 이 브라우저에만 저장돼요.</div>
+      </div>
       <div className="ydp-msg" role="status">{msg}</div>
 
       <Section id="screens" title="화면 이동" open={open} toggle={toggle}>
@@ -182,10 +186,6 @@ export function DemoPanel() {
         </ul>
       </Section>
 
-      <footer className="ydp-foot">
-        <button className="ydp-reset" onClick={() => { if (window.confirm('목업 데이터를 처음 상태로 되돌릴까요? 이 브라우저에서 쓴 글·편지·좋아요가 지워져요.')) { resetDb(); try { localStorage.removeItem('yahwa_welcome_seen'); } catch { /* noop */ } window.location.reload(); } }}>처음 상태로 되돌리기</button>
-        <div className="ydp-note">쓴 글·댓글·좋아요·편지는 이 브라우저에만 저장돼요.</div>
-      </footer>
     </div>
   );
 }

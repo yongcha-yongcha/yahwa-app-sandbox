@@ -51,6 +51,7 @@ const CSS = `
 .ydp-log .n { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #24272B; word-break: break-all; }
 .ydp-log .t { color: #8A8E95; margin-left: auto; text-align: right; }
 .ydp-foot { padding: 16px 18px 0; }
+.ydp-foot-top { padding: 12px 18px 4px; }
 .ydp-reset { width: 100%; border: 1px solid #E5C9C0; background: #fff; color: #A8432A; border-radius: 10px; padding: 10px; font-weight: 600 !important; }
 `;
 
