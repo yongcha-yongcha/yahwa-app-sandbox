@@ -255,7 +255,7 @@ export const MatchProfile = memo(function MatchProfile({ p, width, like, balance
   p: FullProfileData;
   width: number;                       // 콘텐츠 폭(화면 − 40)
   like: LikeChip;
-  balanceChip?: string | null;         // 오늘의 밸런스에서 나와 같은 답을 고른 사람 — '전 부먹파예요'
+  balanceChip?: string | null;         // 오늘의 밸런스에 참여한 사람 — 그 사람이 고른 답 '전 부먹파예요'
   onNameY?: (bottomY: number) => void; // 이름 줄 아래 끝(본문 기준) — 머리 줄에 이름을 띄울 때 쓴다
 }) {
   const [certOpen, setCertOpen] = useState(false);

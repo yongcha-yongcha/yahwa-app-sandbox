@@ -45,7 +45,7 @@ export function FriendDetail({
   const qc = useQueryClient();
   const isMe = myUid === userId;
   const pairs = usePairs();
-  // 오늘의 밸런스로 소개받은 사람 — 나와 같은 답을 골랐으니 '전 부먹파예요' 칩을 보여 준다
+  // 오늘의 밸런스 칩 — 서버가 준 참여자의 답(balance_chip). 밸런스로 소개받은 사람은 내 기록으로도 채운다
   const myBalance = useMyBalance(batchKey());
   const sameBalanceChip = myBalance.data?.profile_id === userId ? myBalance.data.chip : null;
   const fabBottom = useTabBarClearance(12);

@@ -94,8 +94,8 @@ function profileRow(u: Row, feat = featuredIds()): Row {
     featured: feat.has(u.id),
     basic_verified: !!u.gender && !!u.age_locked && !!String(u.phone ?? '').trim(),
     credentials: creds,
-    // 오늘의 밸런스 — 나와 같은 답을 고른 사람에게만 칩 문구가 온다(다른 답이거나 내가 아직 안 골랐으면 null)
-    balance_chip: u.id === ME_ID ? null : sameBalanceChip(u.id),
+    // 오늘의 밸런스 — 오늘 참여한 사람이면 그 사람이 고른 답의 칩 문구(참여 안 했으면 null). 내 답과 같든 다르든 보인다
+    balance_chip: u.id === ME_ID ? null : balanceChipOf(u.id),
   };
 }
 // 시연판의 다른 회원들이 오늘 고른 답 — 85%가 참여하고 답은 반반(배치 · 사람마다 고정). 밸런스로 소개받은 사람은 내 답과 같다
@@ -106,12 +106,11 @@ function theirBalance(id: string, mine: Row | undefined): BalanceSide | null {
   if (h % 100 >= 85) return null;
   return (h >>> 7) % 2 ? 'b' : 'a';
 }
-function sameBalanceChip(id: string): string | null {
+function balanceChipOf(id: string): string | null {
   const viewer = uid();
-  if (!viewer) return null;
-  const mine = table('balance_picks').find((b) => b.user_id === viewer && b.day === batchDate());
-  if (!mine) return null;
-  return theirBalance(id, mine) === mine.choice ? mine.chip : null;
+  const mine = viewer ? table('balance_picks').find((b) => b.user_id === viewer && b.day === batchDate()) : undefined;
+  const side = theirBalance(id, mine);
+  return side ? BALANCE_Q[side].chip : null;
 }
 // 보여 줄 수 있는 사람만(프로필 완성 · 공개 중지 아님 · 숨김 아님)
 function rowsFor(ids: string[], includeHidden: boolean): Row[] {
