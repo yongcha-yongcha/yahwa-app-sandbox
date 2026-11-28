@@ -299,7 +299,7 @@ export function Login({ onBack, enterDelay = 100 }: { onBack?: () => void; enter
           <Rise index={0} trigger={mode}><T v="stepTitle">{signup ? '이메일로\n가입해요.' : '이메일로\n시작해요.'}</T></Rise>
           <Rise index={1} trigger={mode}>
             <T v="intro" style={{ marginTop: 15 }}>
-              {signup ? '입력한 이메일로 인증번호를 보내 드려요.\n만 19세~39세만 가입할 수 있어요.' : '가입할 때 쓴 이메일과 비밀번호를\n입력해 주세요.'}
+              {signup ? '입력한 이메일로 인증번호를 보내 드려요.\n만 19세~45세만 가입할 수 있어요.' : '가입할 때 쓴 이메일과 비밀번호를\n입력해 주세요.'}
             </T>
           </Rise>
           <Rise index={2} trigger={mode} style={{ marginTop: 30 }}>

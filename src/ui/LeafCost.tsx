@@ -54,3 +54,46 @@ export function LeafCostCard({ cost, free, event, balance, label = '사용할 �
     </View>
   );
 }
+
+// ── 세로 리프 카드(시안 designer-fix-1125 V2-b, 11-25) — 편지 답장 · 특별편지로 바꾸기 시트
+// 회색 카드 · 모서리 16 · 안쪽 20(표가 있으면 위 18): 특별가 표(흰 바탕) → 6 → "사용할 리프 · 원래 가격(취소선)" 12/17 →
+// 잎 24 + 큰 숫자 28/36 700 → 선(위 16 · 아래 12) → 보유 · 남는 리프 두 줄. 큰 숫자와 오른쪽 숫자는 '리프' 없이(잎과 이름표가 단위)
+export function LeafSpendCard({ cost, was, event, balance, afterLabel, style }: {
+  cost: number; was?: number; event?: boolean; balance: number; afterLabel: string; style?: StyleProp<ViewStyle>;
+}) {
+  const struck = was != null && was > cost;
+  return (
+    <View style={[{ padding: 20, paddingTop: event ? 18 : 20, borderRadius: radius.card, backgroundColor: colors.bgSoft }, style]}>
+      {event && <EventBadge style={{ marginBottom: 6, backgroundColor: colors.surface }} />}
+      <View accessible accessibilityLabel={`사용할 리프 ${cost}리프${struck ? `, 원래 ${was}리프` : ''}`}>
+        <Text style={{ fontSize: 12, lineHeight: 17, color: colors.mute }}>
+          사용할 리프
+          {struck && <Text style={{ color: colors.lineHover }}>{'  ·  '}</Text>}
+          {struck && <Text style={{ color: colors.subtle, textDecorationLine: 'line-through', fontVariant: ['tabular-nums'] }}>{was}리프</Text>}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <LeafIcon size={24} />
+          <Text style={{ fontSize: 28, lineHeight: 36, fontWeight: '700', letterSpacing: -0.3, color: colors.text, fontVariant: ['tabular-nums'] }}>{cost}</Text>
+        </View>
+      </View>
+      <View style={{ height: 1, marginTop: 16, marginBottom: 12, backgroundColor: colors.lineControl }} />
+      <LeafWalletRows balance={balance} pay={cost} afterLabel={afterLabel} />
+    </View>
+  );
+}
+
+// 보유 · 남는 리프 두 줄 — 13/22 회색 이름표 · 오른쪽 숫자만. 모자라면 둘째 줄이 "더 필요한 리프"(장미 600)
+export function LeafWalletRows({ balance, pay, afterLabel, lineHeight = 22 }: { balance: number; pay: number; afterLabel: string; lineHeight?: number }) {
+  const short = balance < pay;
+  const rows: [string, number, boolean][] = [['보유 리프', balance, false], [short ? '더 필요한 리프' : afterLabel, Math.abs(balance - pay), true]];
+  return (
+    <>
+      {rows.map(([label, n, strong]) => (
+        <View key={label} accessible accessibilityLabel={`${label} ${n.toLocaleString()}리프`} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 13, lineHeight, color: colors.sub }}>{label}</Text>
+          <Text style={{ fontSize: 13, lineHeight, fontVariant: ['tabular-nums'], ...(strong ? { fontWeight: '600', color: short ? colors.loveStrong : colors.text } : { color: colors.sub }) }}>{n.toLocaleString()}</Text>
+        </View>
+      ))}
+    </>
+  );
+}

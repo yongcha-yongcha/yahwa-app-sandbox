@@ -55,6 +55,15 @@ export const subOf = (region?: string | null) => {
   if (!sub) return '';
   return Object.keys(LEGACY_SUB).find((k) => k.startsWith(`${sido}/`) && LEGACY_SUB[k] === sub)?.split('/')[1] ?? sub;
 };
+// 사는 곳을 다시 골라야 하는 값 — 비었거나, '서울 / 기타' · '경기 / 기타'처럼 목록에 없는 세부, 시·군·구 없이 시·도만('부산').
+// 세종(세부 없음)과 예전 8곳('서울 / 강남' 등)은 맞는 값이다. 앱 진입 때 RegionRecheck가 쓴다.
+export const regionNeedsRecheck = (region?: string | null) => {
+  const [sido, sub] = region?.trim() ? split(region.trim()) : [];
+  if (!sido || !(sido in REGION_TREE)) return true;
+  const subs = subRegions(sido);
+  if (!subs.length) return false;
+  return !sub || !subs.includes(subOf(region));
+};
 // '서울 / 강남' → 선택창에 보이는 글자 '서울 강남구'
 export const regionText = (region?: string | null) => (region ? [sidoOf(region), subOf(region)].filter(Boolean).join(' ') : '');
 

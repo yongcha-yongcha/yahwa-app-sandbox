@@ -12,7 +12,7 @@ import { keepAll } from '../affinity/ui';
 import { HIDE_IOS_CURRENCY } from '../../lib/flags';
 import { previewActions, previewSelectors, usePreview } from '../../lib/previewStore';
 import type { LetterRow } from '../../lib/api';
-import { BottomSheet, Button, ConfirmSheet, Icon, LeafCostCard, LeafIcon, SheetButtons, SheetHeader, usePress } from '../../ui';
+import { BottomSheet, Button, ConfirmSheet, Icon, LeafCostCard, LeafIcon, LeafSpendCard, SheetButtons, SheetHeader, usePress } from '../../ui';
 
 const DAY = 86_400_000;
 // 낱말 단위 줄바꿈만(줄 길이 고르기 없이 — 시안 word-break: keep-all)
@@ -196,8 +196,9 @@ export function CostChip({ cost, free, color = colors.inverse, off }: { cost: nu
 
 // ── 리프 확인 시트 — 제목 · 설명 · 리프 카드 · [취소] [실행]. 모자라면 "N리프가 더 필요해요" + [리프 충전하기]
 // free: 무료(원가 취소선 + 0). event: 리프 카드에 '연말까지 오픈 특별가' 표. iOS 통화 숨김이면 리프 카드 없이 제목 · 설명 · 버튼만
-export function LeafConfirmSheet({ open, onClose, title, desc, cost, free, event, confirmLabel, onConfirm, loading, shortReason, children }: {
-  open: boolean; onClose: () => void; title: string; desc?: string; cost: number; free?: boolean; event?: boolean;
+// afterLabel을 주면 세로 리프 카드(V2-b · 원래 가격 was 취소선 · 보유/남는 리프 두 줄)로 그린다 — 편지 답장 · 특별편지로 바꾸기
+export function LeafConfirmSheet({ open, onClose, title, desc, cost, free, event, was, afterLabel, confirmLabel, onConfirm, loading, shortReason, children }: {
+  open: boolean; onClose: () => void; title: string; desc?: string; cost: number; free?: boolean; event?: boolean; was?: number; afterLabel?: string;
   confirmLabel: string; onConfirm: () => void; loading?: boolean; shortReason?: string; children?: React.ReactNode;
 }) {
   const balance = usePreview(previewSelectors.leafBalance);
@@ -214,8 +215,9 @@ export function LeafConfirmSheet({ open, onClose, title, desc, cost, free, event
       onConfirm={short ? () => { onClose(); previewActions.openPaywall(pay, shortReason ?? `${pay}리프가 필요해요.`); } : onConfirm}
     >
       {children}
-      {!HIDE_IOS_CURRENCY && <LeafCostCard cost={cost} free={free} event={event} balance={balance} style={{ marginTop: -4, marginBottom: short ? 8 : 20 }} />}
-      {short && <Text style={{ marginBottom: 20, fontSize: 12, lineHeight: 18, fontWeight: '600', color: colors.loveStrong, textAlign: 'right' }}>{pay - balance}리프가 더 필요해요</Text>}
+      {!HIDE_IOS_CURRENCY && afterLabel && <LeafSpendCard cost={pay} was={was} event={event} balance={balance} afterLabel={afterLabel} style={{ marginTop: -4, marginBottom: 20 }} />}
+      {!HIDE_IOS_CURRENCY && !afterLabel && <LeafCostCard cost={cost} free={free} event={event} balance={balance} style={{ marginTop: -4, marginBottom: short ? 8 : 20 }} />}
+      {short && !afterLabel && <Text style={{ marginBottom: 20, fontSize: 12, lineHeight: 18, fontWeight: '600', color: colors.loveStrong, textAlign: 'right' }}>{pay - balance}리프가 더 필요해요</Text>}
     </ConfirmSheet>
   );
 }

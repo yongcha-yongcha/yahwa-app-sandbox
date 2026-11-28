@@ -9,6 +9,7 @@ import { SCREEN_GROUPS, screenName } from './screens';
 import type { Scenario } from '../scenario';
 import { allScenarios, demoControls } from '../rpc';
 import { queryClient } from '../../lib/query';
+import { BACK_OPTIONS, CHAR_OPTIONS, TITLE_OPTIONS, requestBalanceFocus, setBalanceLook, useBalanceLook } from '../../components/affinity/balance/state';
 
 function useDb() {
   return useSyncExternalStore(onDbChange, () => JSON.stringify([me()?.leaf_balance, me()?.points, me()?.gender, meta.signedIn, meta.timeOffsetMs]));
@@ -40,7 +41,8 @@ export function DemoPanel() {
   const screen = useScreen();
   const log = useLog();
   const [msg, setMsg] = useState('상황을 고르면 여기에 결과가 보여요.');
-  const [open, setOpen] = useState<Record<string, boolean>>({ screens: true, account: true, scenarios: true, log: false });
+  const [open, setOpen] = useState<Record<string, boolean>>({ screens: true, balance: true, account: true, scenarios: true, log: false });
+  const look = useBalanceLook();
   const u = me();
   const blocked = log.filter((l) => l.note?.startsWith('차단')).length;
   const missing = log.filter((l) => l.missing);
@@ -98,6 +100,25 @@ export function DemoPanel() {
             )}
           </div>
         </div>
+      </Section>
+
+      <Section id="balance" title="오늘의 밸런스" open={open} toggle={toggle}>
+        <div className="ydp-note">인연 홈 두 번째 카드예요. 1번 인연에서 왼쪽으로 넘기면 나와요.</div>
+        <div className="ydp-chips" style={{ marginTop: 8 }}>
+          <button className="ydp-chip" onClick={() => { go({ tab: 'affinity' }, setMsg); setTimeout(requestBalanceFocus, 400); setMsg('밸런스 카드로 넘겼어요.'); }}>밸런스 카드로 가기</button>
+          {controls.resetBalance && (
+            <button className="ydp-chip" onClick={() => act(() => { controls.resetBalance(); setBalanceLook({}); }, '오늘 고른 답을 지웠어요. 표지부터 다시 볼 수 있어요.')}>다시 하기</button>
+          )}
+        </div>
+        <Row label="제목">
+          <Seg value={look.title} options={TITLE_OPTIONS} onChange={(v) => { setBalanceLook({ title: v as any }); setMsg('제목 스타일을 바꿨어요. 표지부터 보여요.'); }} />
+        </Row>
+        <Row label="표지 캐릭터">
+          <Seg value={look.char} options={CHAR_OPTIONS} onChange={(v) => { setBalanceLook({ char: v as any }); setMsg('표지 캐릭터를 바꿨어요.'); }} />
+        </Row>
+        <Row label="뒷면">
+          <Seg value={look.back} options={BACK_OPTIONS} onChange={(v) => { setBalanceLook({ back: v as any }); setMsg('뒷면 컨셉을 바꿨어요. [열어보기]를 누르면 보여요.'); }} />
+        </Row>
       </Section>
 
       <Section id="account" title="내 계정" open={open} toggle={toggle}>

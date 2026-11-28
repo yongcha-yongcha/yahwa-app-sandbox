@@ -21,7 +21,9 @@ import { markViewed } from '../lib/viewed';
 import { useMyLetters } from '../lib/letters';
 import { usePairs } from '../lib/pairs';
 import type { FriendProfile } from '../lib/api';
-import { DiscoveryDeck, type DiscoveryPerson, type PendingCard, type Relation } from '../components/affinity/DiscoveryGrid';
+import { DiscoveryDeck, type BalanceProps, type DiscoveryPerson, type PendingCard, type Relation } from '../components/affinity/DiscoveryGrid';
+import { useMyBalance, usePickBalance } from '../lib/balance';
+import { setBalanceOpened, useBalanceLook, useBalanceOpened } from '../components/affinity/balance/state';
 import { RestingCard } from '../components/affinity/HomeCards';
 import { useHiddenIds } from '../components/affinity/hidden';
 import { markDeckViewed, useDeckViewedIds } from '../components/affinity/deckViewed';
@@ -249,6 +251,7 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
       opened: !isGuest && (revealedIds.has(p.user_id) || viewedIds.has(p.user_id)),
       hour,
       extra: (p as DeckRow).extra ?? null,
+      balanceChip: (p as DeckRow).balance_chip ?? null,
       region: regionText(p.region),
       scene: sceneOf(p),
       verified: !!p.basic_verified,
@@ -258,6 +261,26 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
   // flow.alreadySent는 관심 목록(pairs와 같은 쿼리)과 방금 보낸 낙관적 기록을 읽는다 — pairs가 바뀌면 함께 다시 계산된다
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [deck, batch, pairs, letters, revealedIds, viewedIds, isGuest]);
+
+  // 오늘의 밸런스(1번 인연 다음 칸) — 표지를 열면 뒤집히고, 고르면 같은 쪽을 고른 한 사람이 바로 다음 칸에 온다
+  const balanceLook = useBalanceLook();
+  const balanceOpenedLocal = useBalanceOpened(batchK);
+  const myBalance = useMyBalance(batchK);
+  const pickMut = usePickBalance();
+  const balancePick = myBalance.data?.choice ?? '';
+  const [, bm, bd] = batchK.split('-');
+  const balance: BalanceProps = {
+    look: balanceLook,
+    opened: balanceOpenedLocal || !!balancePick,
+    pick: balancePick,
+    date: `${Number(bm)}월 ${Number(bd)}일`,
+    busy: pickMut.isPending,
+    onOpen: () => { if (requireAuth('오늘의 밸런스는 로그인 후 할 수 있어요')) setBalanceOpened(batchK, true); },
+    onPick: (k) => pickMut.mutate(k, {
+      onSuccess: (r) => { if (r?.profile_id) previewActions.showToast('같은 쪽을 고른 인연을 소개했어요.', 2200); },
+      onError: () => previewActions.showToast('잠시 후 다시 시도해주세요', 2200),
+    }),
+  };
 
   // 카드 높이(Home Fit) — 버튼 줄(12 + 52 + 12 + 16)과 하단 메뉴를 뺀 높이 전부. 폭의 1.65배까지만(남으면 그 사이 가운데)
   const w = box.w || winW;
@@ -290,6 +313,7 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
             onProfile={openProfile}
             onLetter={(letterId) => appNav({ kind: 'letterDetail', letterId })}
             onPending={(h) => previewActions.showToast(`${h}시에 만날 수 있어요.`, 2200)}
+            balance={balance}
             more={{
               count: EXTRA_COUNT,
               done: paidExtraIds.size > 0,

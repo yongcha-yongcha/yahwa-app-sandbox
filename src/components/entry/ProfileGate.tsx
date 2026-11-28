@@ -9,7 +9,7 @@ import { colors, fontSerif, layout } from '../../tokens';
 import { BreathingDots, Button, Icon, T } from '../../ui';
 import { usePreview, previewSelectors } from '../../lib/previewStore';
 
-function StatusChip({ label, tone }: { label: string; tone: 'sky' | 'gray' | 'red' }) {
+export function StatusChip({ label, tone }: { label: string; tone: 'sky' | 'gray' | 'red' }) {
   const c = tone === 'sky' ? { bg: colors.accentSubtle, fg: colors.accentStrong, dot: colors.accent } : tone === 'red' ? { bg: colors.dangerSoft, fg: colors.dangerPress, dot: colors.danger } : { bg: colors.bgSoft, fg: colors.textSecondary, dot: colors.mute };
   return (
     <View style={{ alignSelf: 'flex-start', height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: c.bg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>

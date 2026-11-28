@@ -4,6 +4,8 @@
 // 사실 행은 선 없이 가운데 정렬, 질문 24/650 · 답 17/500(시안 1015 '굵은 글씨' 개정).
 // (사진이 1장뿐이면 같은 사진을 반복하지 않고 없는 자리는 건너뛴다)
 // 프로필 상세(전체 화면)와 내 프로필 미리보기가 같은 컴포넌트를 쓴다. 오늘의 인연 카드는 affinity/DeckCard.
+import { ScaleMark } from './affinity/balance/ScaleMark';
+import { iAmChip } from './affinity/balance/content';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import { colors, ease, fontSerif } from '../tokens';
@@ -249,10 +251,11 @@ function LikeChipView({ kind, name }: { kind: Exclude<LikeChip, null>; name: str
   );
 }
 
-export const MatchProfile = memo(function MatchProfile({ p, width, like, onNameY }: {
+export const MatchProfile = memo(function MatchProfile({ p, width, like, balanceChip, onNameY }: {
   p: FullProfileData;
   width: number;                       // 콘텐츠 폭(화면 − 40)
   like: LikeChip;
+  balanceChip?: string | null;         // 오늘의 밸런스에서 나와 같은 답을 고른 사람 — '전 부먹파예요'
   onNameY?: (bottomY: number) => void; // 이름 줄 아래 끝(본문 기준) — 머리 줄에 이름을 띄울 때 쓴다
 }) {
   const [certOpen, setCertOpen] = useState(false);
@@ -309,7 +312,17 @@ export const MatchProfile = memo(function MatchProfile({ p, width, like, onNameY
           </Pressable>
         )}
       </View>
-      {like && <LikeChipView kind={like} name={p.nickname} />}
+      {(!!like || !!balanceChip) && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
+          {like && <LikeChipView kind={like} name={p.nickname} />}
+          {!!balanceChip && (
+            <View accessibilityLabel={`오늘의 밸런스, ${iAmChip(balanceChip)}`} style={{ alignSelf: 'flex-start', marginTop: 12, height: 28, borderRadius: 14, paddingLeft: 8, paddingRight: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.bgSoft }}>
+              <ScaleMark tilt={balanceChip} size={14} />
+              <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: '600', color: colors.text }}>{iAmChip(balanceChip)}</Text>
+            </View>
+          )}
+        </View>
+      )}
       {!!job && (
         <View style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <FactIcon name="job" />

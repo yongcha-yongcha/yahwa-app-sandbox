@@ -8,6 +8,7 @@ import {
 import { PEOPLE } from '../people';
 import { fullMeFields, myHeartRows, ALL_GUIDES_SEEN, manAge } from '../seed/users';
 import type { Scenario } from '../scenario';
+import { BALANCE_Q, type BalanceSide } from '../../components/affinity/balance/content';
 
 // ── 가격 · 규칙(리프 정책 v2 · 0187) ─────────────────────────────────────────
 const EVENT_UNTIL = Date.parse('2027-01-01T00:00:00+09:00');   // 연말까지 오픈 특별가
@@ -248,14 +249,16 @@ export const rpc: Record<string, (args: any) => any> = {
   get_my_deck: () => {
     const viewer = uid();
     if (viewer && !eligible(me())) return [];
-    const ids = ensureBatch();
+    // 밸런스로 앞당겨 소개한 사람은 원래 칸에서 빼고 밸런스 자리에 보인다(시연판은 사람이 적어 배치 안에서 데려온다)
+    const pulled = new Set(viewer ? table('friend_deck_extras').filter((e) => e.user_id === viewer && e.day === batchDate() && e.balance).map((e) => e.profile_id) : []);
+    const ids = ensureBatch().filter((id) => !pulled.has(id));
     const out: Row[] = rowsFor(ids, false).map((r) => ({ ...r, slot: ids.indexOf(r.user_id), extra: null, extra_at: null }));
     if (viewer) {
       const batch = batchDate();
       const extras = table('friend_deck_extras').filter((e) => e.user_id === viewer && e.day === batch && !ids.includes(e.profile_id));
       for (const e of extras) {
         const r = rowsFor([e.profile_id], true)[0];
-        if (r) out.push({ ...r, slot: null, extra: e.bonus ? 'bonus' : 'paid', extra_at: e.created_at });
+        if (r) out.push({ ...r, slot: null, extra: e.balance ? 'balance' : e.bonus ? 'bonus' : 'paid', extra_at: e.created_at, balance_chip: e.balance ? BALANCE_Q[e.balance as BalanceSide].chip : null });
       }
     }
     return out;
@@ -266,12 +269,37 @@ export const rpc: Record<string, (args: any) => any> = {
   buy_extra_friend: () => {
     myRow();
     const batch = batchDate();
-    if (table('friend_deck_extras').some((e) => e.user_id === ME_ID && e.day === batch && !e.bonus)) return 'limit';
+    if (table('friend_deck_extras').some((e) => e.user_id === ME_ID && e.day === batch && !e.bonus && !e.balance)) return 'limit';
     const pids = nextPids(RULE.extraPerBuy);
     if (pids.length < RULE.extraPerBuy) return 'none';
     chargeLeaf(price('extra'), 'deck_extra_friend');
     insertRows('friend_deck_extras', pids.map((pid) => ({ user_id: ME_ID, profile_id: pid, day: batch, bonus: false })));
     return 'ok';
+  },
+
+  // 오늘의 밸런스 — 이번 배치에 고른 답(없으면 null)
+  get_my_balance: () => {
+    const viewer = uid();
+    if (!viewer) return null;
+    const r = table('balance_picks').find((b) => b.user_id === viewer && b.day === batchDate());
+    return r ? { choice: r.choice, chip: r.chip, profile_id: r.profile_id } : null;
+  },
+  // 답 고르기 — 하루 한 번. 같은 쪽을 고른 한 사람을 오늘의 인연에 더한다(실제는 같은 답을 고른 회원 중에서 고른다)
+  pick_balance: ({ p_choice }: { p_choice: BalanceSide }) => {
+    myRow();
+    if (p_choice !== 'a' && p_choice !== 'b') throw new Error('invalid choice');
+    const batch = batchDate();
+    const had = table('balance_picks').find((b) => b.user_id === ME_ID && b.day === batch);
+    if (had) return { choice: had.choice, chip: had.chip, profile_id: had.profile_id };
+    // 같은 쪽을 고른 사람 — 이번 배치 밖의 새 사람이 먼저. 시연판은 사람이 적어서 없으면 아직 공개 전인 오늘의 인연을 앞당긴다
+    const batchIds = ensureBatch();
+    const kst = new Date(now() + 9 * HOUR).getUTCHours();
+    const open = kst >= 21 ? 8 : kst >= 18 ? 6 : kst >= 15 ? 4 : kst >= 12 ? 2 : 8;
+    const pid = nextPids(1)[0] ?? batchIds.slice(open).slice(-1)[0] ?? batchIds.slice(-1)[0] ?? null;
+    const chip = BALANCE_Q[p_choice].chip;
+    insertRows('balance_picks', { user_id: ME_ID, day: batch, choice: p_choice, chip, profile_id: pid });
+    if (pid) insertRows('friend_deck_extras', { user_id: ME_ID, profile_id: pid, day: batch, bonus: false, balance: p_choice });
+    return { choice: p_choice, chip, profile_id: pid };
   },
 
   // 목록용 프로필 — 나와 관련된 사람만. target_user를 주면 그 한 명
@@ -549,7 +577,7 @@ function upsertCredential(kind: string, label0: string, extra: Row, kinds: strin
 function clearMyAffinity() {
   deleteRows('interests', (i) => i.sender_id === ME_ID || i.receiver_id === ME_ID);
   deleteRows('notifications', (n) => n.user_id === ME_ID && n.kind === 'interest');
-  for (const t of ['friend_views', 'deck_batches', 'deck_reveals', 'deck_views', 'friend_deck_extras', 'mind_photo_unlocks']) deleteRows(t, (r) => r.user_id === ME_ID);
+  for (const t of ['friend_views', 'deck_batches', 'deck_reveals', 'deck_views', 'friend_deck_extras', 'mind_photo_unlocks', 'balance_picks']) deleteRows(t, (r) => r.user_id === ME_ID);
 }
 // 처음 상태의 마음함(HEART_PLAN)을 지금 성별에 맞게 다시 깐다 — 미션 보상이 붙지 않게 표에 바로 넣는다
 function reseedMyHearts(gender: 'M' | 'F') {
@@ -562,6 +590,12 @@ function reseedMyHearts(gender: 'M' | 'F') {
 
 export const controls = {
   // 내 성별 바꾸기 — 오늘의 인연이 반대 성별로 다시 뽑히고, 마음함도 그 성별 사람들로 다시 채워져요
+  // 오늘의 밸런스 다시 하기 — 오늘 고른 답과 그 답으로 소개받은 사람을 지운다
+  resetBalance() {
+    const batch = batchDate();
+    deleteRows('balance_picks', (b) => b.user_id === ME_ID && b.day === batch);
+    deleteRows('friend_deck_extras', (e) => e.user_id === ME_ID && e.day === batch && !!e.balance);
+  },
   setMyGender(g: 'F' | 'M') {
     const u = me();
     if (!u) return;

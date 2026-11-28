@@ -131,7 +131,7 @@ export function SignUp({ onDone }: { onDone: () => void }) {
     }
   }
 
-  // ── 생년월일 휠 — 가입할 수 있는 나이(만 19~39세)에 맞춘 년도, 처음 자리는 30년 전 1월 1일 ──
+  // ── 생년월일 휠 — 가입할 수 있는 나이(만 19~45세)에 맞춘 년도, 처음 자리는 30년 전 1월 1일 ──
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: MAX_SIGNUP_AGE - 19 + 1 }, (_, i) => thisYear - MAX_SIGNUP_AGE + i);
   const cur = birth ?? { y: thisYear - 30, m: 1, d: 1 };
@@ -227,7 +227,7 @@ export function SignUp({ onDone }: { onDone: () => void }) {
                     <Text style={{ fontWeight: '600', color: colors.inverseStrong }}>만 {manAge(birth)}세</Text>로 소개돼요.
                   </Text>
                 ) : (
-                  <FieldHelp error={birth ? !!ageErr : tried}>{birth || tried ? err.birth : '만 19세~39세만 가입할 수 있어요.'}</FieldHelp>
+                  <FieldHelp error={birth ? !!ageErr : tried}>{birth || tried ? err.birth : `만 19세~${MAX_SIGNUP_AGE - 1}세만 가입할 수 있어요.`}</FieldHelp>
                 )}
               </View>
             </Rise>
@@ -276,8 +276,20 @@ export function SignUp({ onDone }: { onDone: () => void }) {
           { label: '월', current: cur.m, values: Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` })) },
           { label: '일', current: cur.d, values: Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: `${i + 1}일` })) },
         ]}
-        // 없는 날(2월 30일)은 흐리게 — 고르면 그 달 마지막 날로 맞춘다
-        isDisabled={(k, v, now) => k === 2 && Number(v) > daysIn(Number(now[0]), Number(now[1]))}
+        // 없는 날(2월 30일)은 흐리게 — 고르면 그 달 마지막 날로 맞춘다.
+        // 가입할 수 없는 나이가 되는 달·날(끝 해의 앞뒤)도 흐리게 — 거기서 멈추면 이유를 보여 주고 [선택 완료]를 끈다(1127).
+        // 생년월일은 한 번 정하면 못 바꾸는 값이라 가까운 날로 몰래 맞추지 않는다.
+        isDisabled={(k, v, now) => {
+          const y = Number(now[0]);
+          if (k === 1) { const m = Number(v); return !!signupAgeError(y, m, 1) && !!signupAgeError(y, m, daysIn(y, m)); }
+          if (k === 2) { const m = Number(now[1]), d = Number(v); return d > daysIn(y, m) || !!signupAgeError(y, m, d); }
+          return false;
+        }}
+        invalid={([y, m, d]) => {
+          const yy = Number(y), mm = Number(m);
+          const e = signupAgeError(yy, mm, Math.min(Number(d), daysIn(yy, mm)));
+          return e ? `${e}.` : null;
+        }}
         onDone={([y, m, d]) => {
           const yy = Number(y), mm = Number(m);
           setBirth({ y: yy, m: mm, d: Math.min(Number(d), daysIn(yy, mm)) });

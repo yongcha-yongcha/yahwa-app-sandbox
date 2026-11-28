@@ -261,8 +261,8 @@ export function isAdult(year: number, month: number, day: number): boolean {
   return manAge(year, month, day) >= 19;
 }
 
-// 가입 가능 연령: 만 19세 ~ 만 39세 (대표 지시 1013 — 만 40세 이상 가입 불가)
-export const MAX_SIGNUP_AGE = 40;
+// 가입 가능 연령: 만 19세 ~ 만 45세 (1127 — 만 46세 이상 가입 불가. 예전 1013은 만 39세까지) · 서버 set_birth_date(0194)와 같다
+export const MAX_SIGNUP_AGE = 46;
 export function signupAgeError(year: number, month: number, day: number): string | null {
   const age = manAge(year, month, day);
   if (age < 19) return '만 19세 이상만 가입할 수 있어요';
@@ -270,7 +270,7 @@ export function signupAgeError(year: number, month: number, day: number): string
   return null;
 }
 
-// 가입 후 DOB 등록 (서버도 19~39세 검증 + 변경 차단 RPC 사용)
+// 가입 후 DOB 등록 (서버도 19~45세 검증 + 변경 차단 RPC 사용)
 export async function setBirthDate(year: number, month: number, day: number) {
   const ageErr = signupAgeError(year, month, day);
   if (ageErr) {

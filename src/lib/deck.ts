@@ -67,7 +67,7 @@ export function nextArrivalText(now = new Date(serverNow())): string {
 }
 
 // 오늘의 인연 — 서버가 고른 배치 8명(slot 0~7) + 이번 배치에 추가로 받은 사람(extra) (0183)
-export type DeckRow = FriendProfile & { slot: number | null; extra: 'paid' | 'bonus' | null; extra_at: string | null };
+export type DeckRow = FriendProfile & { slot: number | null; extra: 'paid' | 'bonus' | 'balance' | null; extra_at: string | null; balance_chip?: string | null };
 export async function fetchMyDeck(): Promise<DeckRow[]> {
   const { data, error } = await supabase.rpc('get_my_deck' as never);
   if (error) throw error;

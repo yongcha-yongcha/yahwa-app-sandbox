@@ -7,7 +7,6 @@
 // 상단 안전 영역은 부모(SafeAreaView edges top)가 처리한다. 전역 토스트가 위에 떠야 해서 RN Modal이 아니라 일반 화면이다.
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSerif, layout, radius } from '../tokens';
 import { KeyboardAware, useKeyboardHeight } from '../components/KeyboardAware';
 import { usePreview, previewSelectors, previewActions, getCurrentUserId } from '../lib/previewStore';
@@ -21,9 +20,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MarkGuide, MarkPickRow, MarkQuotes, MarkSheet, markGuideSeen, markSourceOf } from '../components/letters/marks';
 import { ContactTile, CostChip, LetterPaper, LetterPersonRow, Ruled, letterDate, letterDaysLeft, paper } from '../components/letters/ui';
 import { showActionFeedback } from '../components/ActionFeedback';
-import { PriceText } from '../components/PriceText';
 import { keepAll } from '../components/affinity/ui';
-import { BottomSheet, Button, DockArea, Icon, LeafIcon, SheetButtons, TopBar, useDockBottom, usePress } from '../ui';
+import { BottomSheet, Button, DockArea, Icon, LeafIcon, LeafWalletRows, SheetButtons, TopBar, useDockBottom, usePress } from '../ui';
 import { EventBadge } from '../ui/LeafCost';
 
 const PHONE_RE = /^\+?[0-9 ()-]{8,20}$/;
@@ -50,7 +48,6 @@ export function LetterCompose({ receiver, mode, letterId, invitedReply, onBack, 
   onBack: () => void;
   onSent: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const myProfile = usePreview(previewSelectors.myProfile);
   const balance = usePreview(previewSelectors.leafBalance);
   const sendMut = useSendLetterMutation();
@@ -163,7 +160,7 @@ export function LetterCompose({ receiver, mode, letterId, invitedReply, onBack, 
   const orig = isReply ? lettersQ.data?.find((l) => l.id === letterId) : undefined;
   const origDays = orig ? letterDaysLeft(orig.expires_at, Date.now()) : 0;
   return (
-    <KeyboardAware iosOffset={insets.top} style={{ flex: 1, backgroundColor: colors.bg }}>
+    <KeyboardAware style={{ flex: 1, backgroundColor: colors.bg }}>
       <TopBar onBack={onBack} />
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: layout.gutter, paddingBottom: 56 }}>
         <LetterPersonRow
@@ -264,11 +261,15 @@ export function LetterCompose({ receiver, mode, letterId, invitedReply, onBack, 
       <BottomSheet open={priceOpen} onClose={() => setPriceOpen(false)} dismissable={!pending}>
         <Text accessibilityRole="header" style={{ marginTop: 4, fontSize: 19, lineHeight: 26.6, fontWeight: '700', color: colors.text }}>어떤 편지로 보낼까요?</Text>
         <Text style={{ marginTop: 4, marginBottom: 16, fontSize: 14, lineHeight: 21.7, color: colors.textSecondary }}>읽지 않으면 3일 뒤 쓴 리프가 돌아와요.</Text>
-        <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
-          <KindRow title="일반편지" desc="내 편지를 전해요" cost={P.letter} event={pricing.event} selected={kind === 'letter'} onPress={() => setKind('letter')} />
-          <KindRow title="특별편지" benefits={['상대 무료답장 가능']} cost={P.invite} event={pricing.event} selected={kind === 'invite'} onPress={() => setKind('invite')} />
+        <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 8 }}>
+          <KindCard title="일반편지" desc="내 편지를 전해요" cost={P.letter} was={pricing.normal.letter} event={pricing.event} selected={kind === 'letter'} onPress={() => setKind('letter')} />
+          <KindCard title="특별편지" benefit="상대 무료답장" cost={P.invite} was={pricing.normal.invite} event={pricing.event} selected={kind === 'invite'} onPress={() => setKind('invite')} />
         </View>
-        <PriceFoot balance={balance} cost={P[kind]} />
+        {HIDE_IOS_CURRENCY ? <View style={{ height: 20 }} /> : (
+          <View style={{ marginTop: 10, marginBottom: 20, paddingVertical: 10, paddingHorizontal: 16, borderRadius: radius.card, backgroundColor: colors.bgSoft }}>
+            <LeafWalletRows balance={balance} pay={P[kind]} afterLabel="보낸 뒤 남는 리프" lineHeight={20} />
+          </View>
+        )}
         <SheetButtons
           onCancel={() => setPriceOpen(false)}
           confirmLabel={!HIDE_IOS_CURRENCY && balance < P[kind] ? '리프 충전하기' : '보내기'}
@@ -281,24 +282,22 @@ export function LetterCompose({ receiver, mode, letterId, invitedReply, onBack, 
   );
 }
 
-// 보유 줄 — 오른쪽 정렬 12/18 "보유 N리프 · 보내면 M리프 남아요". 모자라면 장미 600 "N리프 더 필요해요"
-function PriceFoot({ balance, cost }: { balance: number; cost: number }) {
-  if (HIDE_IOS_CURRENCY) return <View style={{ height: 20 }} />;
-  const short = balance < cost;
-  return (
-    <Text style={[{ marginTop: 12, marginBottom: 20, fontSize: 12, lineHeight: 18, textAlign: 'right', fontVariant: ['tabular-nums'] }, short ? { fontWeight: '600', color: colors.loveStrong } : { color: colors.mute }]}>
-      {short ? `${cost - balance}리프 더 필요해요` : `보유 ${balance.toLocaleString()}리프 · 보내면 ${(balance - cost).toLocaleString()}리프 남아요`}
-    </Text>
-  );
-}
-
-// 편지 종류 한 줄 — 최소 64 · 모서리 16 · 안쪽 12 16 · 선 1px #CFD5DA(고르면 1.5px #273037).
-// 라디오 22 → 12 → 이름 15/22 600 + 설명 12/18(또는 체크 14 + 혜택 줄) → 오른쪽 잎 16 + 값 15/600 강조 파랑
-// 이벤트 중이면 값 아래 '연말까지 오픈 특별가' 표(리프 정책 v2)
-function KindRow({ title, desc, benefits, cost, free, event, selected, onPress }: {
-  title: string; desc?: string; benefits?: string[]; cost: number; free?: boolean; event?: boolean; selected: boolean; onPress: () => void;
+// 편지 종류 카드 — 두 장을 나란히(시안 designer-fix-1125 V2-b, 11-25). 모서리 16 · 안쪽 14 · 선 1px #CFD5DA(고르면 1.5px #273037).
+// 위: 특별가 표(이벤트 중) · 오른쪽 위 라디오 20 → 이름 15/22 600 → 설명 12/18(또는 체크 + 혜택) → 원래 가격 12/16 취소선 → 잎 18 + 값 22/28 700(숫자만)
+// 카드가 좁아 표가 라디오에 닿으면(320급 폰) 표를 값 아래로 내린다
+function KindCard({ title, desc, benefit, cost, was, event, selected, onPress }: {
+  title: string; desc?: string; benefit?: string; cost: number; was: number; event?: boolean; selected: boolean; onPress: () => void;
 }) {
   const press = usePress(0.98);
+  const sale = !HIDE_IOS_CURRENCY && !!event && was > cost;
+  const [cardW, setCardW] = useState(0);
+  const [badgeW, setBadgeW] = useState(0);
+  const badgeTop = !cardW || !badgeW || badgeW + 6 + 20 <= cardW - 28;  // 안쪽 14×2 · 라디오 20 · 틈 6
+  const badge = sale && (
+    <View onLayout={(e) => setBadgeW(e.nativeEvent.layout.width)} style={{ alignSelf: 'flex-start', marginBottom: badgeTop ? 6 : 0, marginTop: badgeTop ? 0 : 6 }}>
+      <EventBadge />
+    </View>
+  );
   return (
     <Pressable
       onPress={onPress}
@@ -306,33 +305,30 @@ function KindRow({ title, desc, benefits, cost, free, event, selected, onPress }
       onPressOut={press.onPressOut}
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
-      accessibilityLabel={HIDE_IOS_CURRENCY ? title : free ? `${title}, 무료` : `${title}, ${cost}리프${event ? `, ${LEAF_EVENT_LABEL}` : ''}`}
+      accessibilityLabel={HIDE_IOS_CURRENCY ? title : `${title}, ${cost}리프${sale ? `, 원래 ${was}리프, ${LEAF_EVENT_LABEL}` : ''}`}
+      style={{ flex: 1, minWidth: 0 }}
     >
-      <View style={{ minHeight: 64, paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.card, flexDirection: 'row', alignItems: benefits ? 'flex-start' : 'center', gap: 12 }}>
+      <View onLayout={(e) => setCardW(e.nativeEvent.layout.width)} style={{ flex: 1, padding: 14, borderRadius: radius.card, backgroundColor: colors.surface }}>
         {/* 테두리는 덧씌운다 — 굵기가 바뀌어도 안쪽이 밀리지 않게 */}
         <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderRadius: radius.card, borderWidth: selected ? 1.5 : 1, borderColor: selected ? colors.inverseStrong : colors.lineControl }} />
-        <View style={[{ width: 22, height: 22, borderRadius: 11, marginTop: benefits ? 2 : 0, backgroundColor: colors.surface }, selected ? { borderWidth: 7, borderColor: colors.inverseStrong } : { borderWidth: 1.5, borderColor: colors.lineHover }]} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontSize: 15, lineHeight: 22, fontWeight: '600', color: colors.text }}>{title}</Text>
-          {!!desc && <Text style={{ fontSize: 12, lineHeight: 18, color: colors.sub }}>{desc}</Text>}
-          {!!benefits && (
-            <View style={{ marginTop: 4, gap: 2 }}>
-              {benefits.map((b) => (
-                <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Icon name="check" size={14} color={colors.btnPrimaryBg} />
-                  <Text style={{ fontSize: 12, lineHeight: 18, color: colors.sub }}>{b}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
+        <View style={[{ position: 'absolute', top: 14, right: 14, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.surface }, selected ? { borderWidth: 6, borderColor: colors.inverseStrong } : { borderWidth: 1.5, borderColor: colors.lineHover }]} />
+        {badgeTop && badge}
+        <Text style={{ paddingRight: sale && badgeTop ? 0 : 26, fontSize: 15, lineHeight: 22, fontWeight: '600', color: colors.text }}>{title}</Text>
+        {!!desc && <Text style={{ fontSize: 12, lineHeight: 18, color: colors.sub }}>{desc}</Text>}
+        {!!benefit && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Icon name="check" size={13} color={colors.btnPrimaryBg} />
+            <Text style={{ flexShrink: 1, fontSize: 12, lineHeight: 18, color: colors.sub }}>{benefit}</Text>
+          </View>
+        )}
         {!HIDE_IOS_CURRENCY && (
-          <View style={{ marginTop: benefits ? -1 : 0, alignItems: 'flex-end', gap: 4 }}>
-            <View style={{ height: 22, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <LeafIcon size={16} />
-              <PriceText cost={cost} free={free} style={{ fontSize: 15, lineHeight: 22, fontWeight: '600', color: colors.accent, letterSpacing: 0 }} />
+          <View style={{ marginTop: 'auto' }}>
+            {sale && <Text style={{ marginTop: 6, fontSize: 12, lineHeight: 16, color: colors.subtle, textDecorationLine: 'line-through', fontVariant: ['tabular-nums'] }}>{was}리프</Text>}
+            <View style={{ marginTop: sale ? 0 : 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <LeafIcon size={18} />
+              <Text style={{ fontSize: 22, lineHeight: 28, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] }}>{cost}</Text>
             </View>
-            {event && !free && <EventBadge style={{ alignSelf: 'flex-end' }} />}
+            {!badgeTop && badge}
           </View>
         )}
       </View>

@@ -246,7 +246,9 @@ export function LetterDetail({ letterId, onBack, onOpenProfile, onReply }: {
         title="답장을 쓸까요?"
         desc="답장을 보내면 서로의 연락처가 공개돼요. 쓴 리프는 돌려받지 않아요."
         cost={P.reply}
+        was={pricing.normal.reply}
         event={pricing.event}
+        afterLabel="답장 후 남는 리프"
         confirmLabel="답장 쓰기"
         onConfirm={() => { setSheet(''); onReply(letter); }}
         shortReason={`답장에는 ${P.reply}리프가 필요해요.`}
@@ -258,7 +260,9 @@ export function LetterDetail({ letterId, onBack, onOpenProfile, onReply }: {
         title="특별편지로 바꿀까요?"
         desc="상대가 무료로 답장할 수 있어요."
         cost={P.upgrade}
+        was={pricing.normal.upgrade}
         event={pricing.event}
+        afterLabel="바꾼 뒤 남는 리프"
         confirmLabel="바꾸기"
         onConfirm={() => upgrade(letter)}
         loading={upgradeMut.isPending}

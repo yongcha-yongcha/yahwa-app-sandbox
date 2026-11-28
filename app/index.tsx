@@ -40,6 +40,8 @@ import { MatchPrefs } from '../src/screens/MatchPrefs';
 import { LetterArrivedPopup } from '../src/components/LetterArrivedPopup';
 import { LeafConversionPopup } from '../src/components/LeafConversionPopup';
 import { ProfileGate } from '../src/components/entry/ProfileGate';
+import { RegionRecheck } from '../src/components/entry/RegionRecheck';
+import { regionNeedsRecheck } from '../src/components/entry/profileOptions';
 import { SuspendedCard } from '../src/components/affinity/HomeCards';
 import { useMyLetters, letterState } from '../src/lib/letters';
 import { registerAppNav, type AppNavTarget } from '../src/lib/appNav';
@@ -542,10 +544,13 @@ export default function Index() {
 
   // 로그인·가입·필수 프로필처럼 탭·오버레이 대신 전체를 덮는 화면인지 — 아래 렌더 분기와 같은 조건
   const me = meQuery.data as any;
+  // 사는 곳이 '서울 / 기타' · 시·도만인 예전 회원은 다시 고를 때까지 RegionRecheck(11-27). 저장 직후엔 서버 재조회를 기다리지 않는다
+  const [regionFixed, setRegionFixed] = useState(false);
+  const needRegion = !PREVIEW_FROM_ENV && !!me && !regionFixed && regionNeedsRecheck(me.region);
   const entryScreen = (!session && (!!authPrompt || !!welcome)) || authHold || introFinishing
     || (!!session && (PREVIEW_FROM_ENV
       ? !myProfile.onboarded
-      : !me || !me.age_locked || (!me.profile_completed && String(me.created_at ?? '') >= PROFILE_REQUIRED_SINCE)));
+      : !me || !me.age_locked || (!me.profile_completed && String(me.created_at ?? '') >= PROFILE_REQUIRED_SINCE) || needRegion));
   // 시연도구에 지금 화면 알리기
   const demoEntry = !session ? (welcome ? 'welcome' : authPrompt ? 'auth' : null) : entryScreen ? 'signup' : null;
   useEffect(() => { reportDemoScreen(tab, overlay, demoEntry); }, [tab, overlay, demoEntry]);
@@ -699,6 +704,13 @@ export default function Index() {
             onDone={() => { setIntroFinishing(false); setOverlay(null); setGateToAffinity(false); meQuery.refetch(); setTab('affinity'); }}
             onExit={() => { signOut().catch(() => {}); }}
           />
+        </SafeAreaView>
+      );
+    }
+    else if (needRegion) {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top', 'bottom']}>
+          <RegionRecheck current={me.region} onDone={() => { setRegionFixed(true); meQuery.refetch(); }} />
         </SafeAreaView>
       );
     }

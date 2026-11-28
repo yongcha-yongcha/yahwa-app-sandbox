@@ -23,6 +23,8 @@ import { PersonSheet, MoreButton } from '../components/affinity/ProfileMenus';
 import { ProfilePhoto } from '../components/affinity/ProfilePhoto';
 import { EnvelopePill, RIcons } from '../components/affinity/icons';
 import { markViewed } from '../lib/viewed';
+import { useMyBalance } from '../lib/balance';
+import { batchKey } from '../lib/deck';
 import { useScreenActive } from '../components/KeepAlive';
 import { BackButton, BreathingDots, Button, ConfirmSheet, LeafIcon, NATIVE, T, Tooltip, TopBar, reduceMotion, useGnbBottom, useTabBarClearance } from '../ui';
 
@@ -43,6 +45,9 @@ export function FriendDetail({
   const qc = useQueryClient();
   const isMe = myUid === userId;
   const pairs = usePairs();
+  // 오늘의 밸런스로 소개받은 사람 — 나와 같은 답을 골랐으니 '전 부먹파예요' 칩을 보여 준다
+  const myBalance = useMyBalance(batchKey());
+  const sameBalanceChip = myBalance.data?.profile_id === userId ? myBalance.data.chip : null;
   const fabBottom = useTabBarClearance(12);
   const padBottom = useTabBarClearance(12) + 56 + 24;
   const gnbBottom = useGnbBottom();
@@ -294,7 +299,7 @@ export function FriendDetail({
         {/* 받은 편지 — 편지 알림으로 들어와도 바로 보이게 맨 위 */}
         {incoming && <IncomingLetterCard letter={incoming} onAccept={() => acceptLetter(incoming)} onDecline={() => setDeclineFor(incoming)} />}
         <View onLayout={(e) => { bodyY.current = e.nativeEvent.layout.y; }}>
-          <MatchProfile p={toFullProfile(p as any)} width={contentW} like={isMe ? null : likeChip} onNameY={(y) => { nameY.current = y; }} />
+          <MatchProfile p={toFullProfile(p as any)} width={contentW} like={isMe ? null : likeChip} balanceChip={isMe ? null : sameBalanceChip} onNameY={(y) => { nameY.current = y; }} />
         </View>
       </ScrollView>
 

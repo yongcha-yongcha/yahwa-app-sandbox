@@ -16,6 +16,6 @@ export { DockArea, useDockBottom } from './Dock';
 export { Gnb, GNB_TABS, useGnbBottom, useTabBarClearance, type GnbTab } from './Gnb';
 export { useToastAnchor } from './toastAnchor';
 export { Rise, FadeIn, SlideSwap, BreathingDots, usePress, reduceMotion, haptic, NATIVE } from './motion';
-export { LeafCostCard, LeafIcon } from './LeafCost';
+export { LeafCostCard, LeafIcon, LeafSpendCard, LeafWalletRows } from './LeafCost';
 export { WheelSheet, type WheelColumn, type WheelValue } from './WheelPicker';
 export { RangeSlider } from './RangeSlider';

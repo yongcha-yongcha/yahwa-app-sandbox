@@ -8,7 +8,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { colors, dur, ease, fontSerif, radius } from '../../tokens';
 import { BottomSheet, Button, Icon, NATIVE, reduceMotion, usePress } from '../../ui';
 import { ProfilePhoto } from '../affinity/ProfilePhoto';
@@ -83,6 +83,9 @@ export async function markGuideSeen(): Promise<boolean> {
 function rememberGuide() { AsyncStorage.setItem(GUIDE_KEY, '1').catch(() => {}); }
 
 // ── 사용법 안내(가운데 대화상자) ──────────────────────────────────────────
+// 사진 예시 — 가입 흐름 사진 기준의 '좋은 예' 인물(샘플 사진)
+const GUIDE_PHOTO = require('../../../assets/renewal/photo-guide/ok.jpg');
+
 export function MarkGuide({ open, name, onClose, onGo }: { open: boolean; name: string; onClose: () => void; onGo: () => void }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -112,10 +115,10 @@ export function MarkGuide({ open, name, onClose, onGo }: { open: boolean; name: 
             </GuideColumn>
             <GuideColumn label="사진 예시" name={name}>
               <View style={{ marginTop: 6, width: 56 }}>
-                <LinearGradient colors={['#FAF7EF', '#F3EDDE', '#B6A074', '#6C582C']} locations={[0, 0.6, 0.62, 1]} style={{ width: 56, height: 56, borderRadius: 8 }} />
+                <Image source={GUIDE_PHOTO} contentFit="cover" contentPosition="top" style={{ width: 56, height: 56, borderRadius: 8, backgroundColor: colors.muted }} />
                 <View style={{ marginTop: 3, height: 3, borderRadius: 2, backgroundColor: colors.btnPrimaryBg }} />
               </View>
-              <Text style={[keepAll, { marginTop: 8, fontFamily: fontSerif, fontSize: 12, lineHeight: 22, color: colors.text }]}>이 창가 자리, 제 취향이에요.</Text>
+              <Text style={[keepAll, { marginTop: 8, fontFamily: fontSerif, fontSize: 12, lineHeight: 22, color: colors.text }]}>웃는 모습이 편안해 보여요.</Text>
             </GuideColumn>
           </View>
           <View style={{ marginTop: 12, gap: 6 }}>
@@ -143,7 +146,7 @@ function GuideColumn({ label, name, children }: { label: string; name: string; c
   return (
     <View style={{ flex: 1, padding: 10, borderRadius: radius.card, backgroundColor: colors.bgSoft }}>
       <Text style={{ fontSize: 12, lineHeight: 18, fontWeight: '600', color: colors.textSecondary }}>{label}</Text>
-      <View style={{ flex: 1, marginTop: 8, paddingTop: 10, paddingHorizontal: 10, paddingBottom: 6, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, borderTopLeftRadius: 4, borderTopRightRadius: 12, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }}>
+      <View style={{ flexGrow: 1, marginTop: 8, paddingTop: 10, paddingHorizontal: 10, paddingBottom: 6, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, borderTopLeftRadius: 4, borderTopRightRadius: 12, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }}>
         <Text numberOfLines={1} style={{ fontFamily: fontSerif, fontSize: 11, lineHeight: 18, color: colors.mute }}>{name}님에게</Text>
         {children}
       </View>

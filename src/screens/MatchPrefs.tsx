@@ -24,11 +24,16 @@ const SINGLES: { key: SingleKey; title: string; icon: IconC; options: string[]; 
   { key: 'politics', title: '정치 성향', icon: RIcons.prefTalk, options: ['중도', '진보', '보수', '무관심'] },
 ];
 export const AGE_MIN = 19;
-export const AGE_MAX = 60;
-const DEFAULTS: Prefs = { regions: [], mbtis: [], ageAny: true, minAge: 20, maxAge: 40 };
+export const AGE_MAX = 45;   // 가입 상한(만 45세)과 같다 — auth.ts MAX_SIGNUP_AGE
+const DEFAULTS: Prefs = { regions: [], mbtis: [], ageAny: true, minAge: 20, maxAge: AGE_MAX };
+// 상한보다 크게 저장된 예전 값(예: 20–60)은 상한으로 맞춰 보여 준다 — 다음에 저장할 때 맞춘 값으로 저장된다
+const fitAge = (p: Prefs): Prefs => {
+  const hi = Math.min(p.maxAge ?? AGE_MAX, AGE_MAX);
+  return { ...p, maxAge: hi, minAge: Math.min(p.minAge ?? 20, hi - 1) };
+};
 // 바뀐 것이 있는지 비교할 때 쓰는 모양(빈 값 = 상관없음)
 const norm = (d: Prefs) => JSON.stringify([
-  [...(d.regions ?? [])].sort(), [...(d.mbtis ?? [])].sort(), !!d.ageAny, d.ageAny ? 0 : d.minAge ?? 20, d.ageAny ? 0 : d.maxAge ?? 40,
+  [...(d.regions ?? [])].sort(), [...(d.mbtis ?? [])].sort(), !!d.ageAny, d.ageAny ? 0 : d.minAge ?? 20, d.ageAny ? 0 : d.maxAge ?? AGE_MAX,
   ...SINGLES.map((g) => d[g.key] || ANY),
 ]);
 
@@ -44,7 +49,7 @@ export function usePrefsDraft(active: boolean = true) {
   useEffect(() => {
     if (!active) { setBase(null); return; }
     if (base || !prefsQ.data) return;
-    const v = { ...DEFAULTS, ...prefsQ.data };
+    const v = fitAge({ ...DEFAULTS, ...prefsQ.data });
     setD(v); setBase(v);
   }, [active, prefsQ.data, base]);
   const dirty = !!base && norm(d) !== norm(base);
@@ -80,9 +85,9 @@ export function PrefSectionHead({ icon: I, title, value, hint }: { icon: IconC; 
   );
 }
 
-// 나이 — 범위 막대(19~60). 막대를 움직이면 '상관없음'이 풀린다. dimAny: 상관없음이면 막대를 35%로 흐리게(취향 설정 화면)
+// 나이 — 범위 막대(19~45). 막대를 움직이면 '상관없음'이 풀린다. dimAny: 상관없음이면 막대를 35%로 흐리게(취향 설정 화면)
 export function AgeSection({ d, setD, dimAny }: { d: Prefs; setD: React.Dispatch<React.SetStateAction<Prefs>>; dimAny?: boolean }) {
-  const lo = d.minAge ?? 20, hi = d.maxAge ?? 40;
+  const lo = d.minAge ?? 20, hi = d.maxAge ?? AGE_MAX;
   return (
     <View>
       <PrefSectionHead icon={RIcons.prefPerson} title="나이" value={d.ageAny ? ANY : `${lo}–${hi}세`} />

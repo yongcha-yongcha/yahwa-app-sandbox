@@ -16,6 +16,11 @@ import { thumbUrl } from '../../lib/img';
 import { kstHour } from '../../lib/deck';
 import { ProfilePhoto } from './ProfilePhoto';
 import { CertBadge, EnvelopePill, RIcons, TwoHearts } from './icons';
+import { FactIcon } from '../entry/art';
+import { BalanceCard } from './balance/BalanceCard';
+import type { BalanceSide } from './balance/content';
+import { ScaleMark } from './balance/ScaleMark';
+import { useBalanceFocusReq, type BalanceLook } from './balance/state';
 
 const isWeb = Platform.OS === 'web';
 const RADIUS = 22;
@@ -52,7 +57,8 @@ export type DiscoveryPerson = {
   id: string; name: string; age?: number | null; photo?: string | null;
   opened: boolean;                       // 홈에서 연 카드(선명한 사진)
   hour: number | null;                   // 공개 시각(12·15·18·21) — 없으면 추가 소개 · 보너스로 받은 사람
-  extra?: 'paid' | 'bonus' | null;
+  extra?: 'paid' | 'bonus' | 'balance' | null;
+  balanceChip?: string | null;           // 오늘의 밸런스로 소개받은 사람 — 카드에 '같이 {칩}'
   region?: string | null;
   scene?: string | null;                 // "이 사람의 한 장면" — 소개 한 토막
   verified?: boolean; hiCert?: boolean;  // 본인 인증 / 학력 · 직장 · 소득 인증 있음
@@ -62,7 +68,19 @@ export type PendingCard = { hour: number; hoursLeft: number; photo?: string | nu
 type Item =
   | { kind: 'person'; key: string; p: DiscoveryPerson }
   | { kind: 'pending'; key: string; c: PendingCard }
+  | { kind: 'balance'; key: string }
   | { kind: 'more'; key: string };
+
+// 오늘의 밸런스 카드(1번 인연 다음 칸) — 표지 → [열어보기] 뒤집기 → 카드를 눌러 고르기
+export type BalanceProps = {
+  look: BalanceLook;
+  opened: boolean;
+  pick: BalanceSide | '';
+  date: string;
+  busy: boolean;
+  onOpen: () => void;
+  onPick: (side: BalanceSide) => void;
+};
 
 export type MoreCardProps = {
   count: number;            // 한 번에 더 소개받는 수(지금 2, 리프 정책 v2)
@@ -73,13 +91,14 @@ export type MoreCardProps = {
 
 const COUNT_WORD = ['', '한', '두', '세', '네', '다섯'];
 
-export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, more, onReveal, onProfile, onLetter, onPending }: {
+export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, more, balance, onReveal, onProfile, onLetter, onPending }: {
   people: DiscoveryPerson[];
   pending: PendingCard[];           // 아직 안 열린 시간대 카드(두 장씩)
   batchKey: string;
   width: number;                    // 화면 폭
   cardHeight: number;
   more: MoreCardProps;
+  balance?: BalanceProps;           // 없으면(비회원 등) 밸런스 카드를 넣지 않는다
   onReveal: (id: string) => boolean;   // '인연 열어보기' — 열 수 있으면 true(기록은 부모가 남긴다)
   onProfile: (id: string) => void;
   onLetter: (letterId: string) => void;
@@ -88,19 +107,27 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
   const cardW = Math.max(240, width - SIDE * 2);
   const step = cardW + GAP;
   // 순서: 공개된 슬롯 → 아직 안 열린 시간대 → 추가 소개 · 보너스로 받은 사람(시안: 8장 뒤, 마지막 카드 앞) → 더 소개받기
+  // 오늘의 밸런스는 맨 앞 칸(1번 인연보다 앞) — 첫 화면은 1번 인연에서 시작하고, 왼쪽으로 넘겨야 밸런스가 나온다.
+  // 밸런스로 소개받은 사람은 밸런스 카드 바로 다음(1번 인연 앞)에 붙는다.
+  const hasBalance = !!balance;
   const ordered = useMemo<Item[]>(() => {
     const person = (p: DiscoveryPerson): Item => ({ kind: 'person', key: `p:${p.id}`, p });
-    return [
+    const list: Item[] = [
       ...people.filter((p) => p.hour != null).map(person),
       ...pending.map((c, i): Item => ({ kind: 'pending', key: `t:${c.hour}:${i}`, c })),
-      ...people.filter((p) => p.hour == null).map(person),
+      ...people.filter((p) => p.hour == null && p.extra !== 'balance').map(person),
       { kind: 'more', key: 'more' },
     ];
-  }, [people, pending]);
+    if (hasBalance) list.unshift({ kind: 'balance', key: 'balance' }, ...people.filter((p) => p.extra === 'balance').map(person));
+    return list;
+  }, [people, pending, hasBalance]);
+  // 처음 보여 줄 칸 — 1번 인연(밸런스 칸들 다음)
+  const startIndex = hasBalance ? 1 + people.filter((p) => p.extra === 'balance').length : 0;
+  const balanceIndex = ordered.findIndex((it) => it.kind === 'balance');
 
   useEffect(() => { setDeckUnseen(people.some((p) => !p.opened)); }, [people]);
 
-  if (indexMemo.key !== batchKey) { indexMemo.key = batchKey; indexMemo.index = 0; }
+  if (indexMemo.key !== batchKey) { indexMemo.key = batchKey; indexMemo.index = Math.min(startIndex, ordered.length - 1); }
   const [index, setIndexState] = useState(() => Math.min(indexMemo.index, ordered.length - 1));
   const setIndex = (i: number) => { indexMemo.index = i; setIndexState(i); };
   // 카드 수가 줄면(숨김 · 차단) 끝을 넘지 않게
@@ -121,7 +148,11 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
     if (i !== indexMemo.index) { goTo(i); return; }
     if (it.kind === 'person') { if (it.p.opened) onProfile(it.p.id); else onReveal(it.p.id); }
     else if (it.kind === 'pending') onPending(it.c.hour);
+    else if (it.kind === 'balance' && balance && !balance.opened) balance.onOpen();
   };
+  // 시연도구 '밸런스 카드로 가기'
+  const focusReq = useBalanceFocusReq();
+  useEffect(() => { if (focusReq && balanceIndex >= 0) goTo(balanceIndex); }, [focusReq]);  // eslint-disable-line react-hooks/exhaustive-deps
   const onCardPress = useCallback((i: number) => pressRef.current(i), []);
 
   const active = ordered[Math.min(index, ordered.length - 1)];
@@ -157,6 +188,9 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
               <PersonCard p={item.p} i={i} w={cardW} h={cardHeight} compact={compact} live={Math.abs(i - index) <= 1} focused={i === index} onPress={onCardPress} />
             ) : item.kind === 'pending' ? (
               <PendingCardView c={item.c} i={i} w={cardW} h={cardHeight} live={Math.abs(i - index) <= 1} onPress={onCardPress} />
+            ) : item.kind === 'balance' && balance ? (
+              <BalanceCard w={cardW} h={cardHeight} look={balance.look} opened={balance.opened} pick={balance.pick} date={balance.date}
+                onPress={() => onCardPress(i)} onPick={(k) => { if (i === indexMemo.index && !balance.busy) balance.onPick(k); else onCardPress(i); }} />
             ) : (
               <MoreCard {...more} onFocus={i !== index ? () => goTo(i) : undefined} />
             )}
@@ -170,6 +204,9 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
           onReveal={onReveal}
           onProfile={onProfile}
           onLetter={onLetter}
+          balance={balance}
+          onNext={() => goTo(Math.min(index + 1, ordered.length - 1))}
+          nextIsBalancePerson={ordered[index + 1]?.kind === 'person' && (ordered[index + 1] as { p: DiscoveryPerson }).p.extra === 'balance'}
         />
       </View>
     </View>
@@ -261,10 +298,11 @@ const PendingCardView = memo(function PendingCardView({ c, i, w, h, live, onPres
 function arriveText(p: DiscoveryPerson) {
   // 배치는 낮 12시에 바뀐다 — 정오 전에 보이는 카드는 어제 그 시각에 도착한 사람(대표 11-21: 규칙 유지, 문구로 구분)
   if (p.hour != null) return `${kstHour() < 12 ? '어제 ' : ''}${p.hour}:00에 도착한 인연`;
+  if (p.extra === 'balance') return '';
   return p.extra === 'bonus' ? '보너스로 도착한 인연' : '새로 도착한 인연';
 }
 const E = ease.out;
-const CARD_FIELDS = ['id', 'name', 'age', 'photo', 'opened', 'hour', 'extra', 'region', 'scene', 'verified', 'hiCert'] as const;
+const CARD_FIELDS = ['id', 'name', 'age', 'photo', 'opened', 'hour', 'extra', 'balanceChip', 'region', 'scene', 'verified', 'hiCert'] as const;
 const PersonCard = memo(function PersonCard({ p, i, w, h, compact, live, focused, onPress }: {
   p: DiscoveryPerson; i: number; w: number; h: number; compact: boolean; live: boolean; focused: boolean; onPress: (i: number) => void;
 }) {
@@ -358,6 +396,15 @@ const PersonCard = memo(function PersonCard({ p, i, w, h, compact, live, focused
           )}
         </Animated.View>
       )}
+      {/* 오늘의 밸런스로 소개받은 사람 — 위 가운데 '같이 부먹파' 칩 */}
+      {!!p.balanceChip && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 16, alignItems: 'center' }}>
+          <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.92)' }}>
+            <ScaleMark tilt={p.balanceChip} />
+            <Text style={{ fontSize: 13, lineHeight: 18, fontWeight: '700', color: colors.text }}>같이 {p.balanceChip}</Text>
+          </View>
+        </View>
+      )}
       {/* 연 뒤 글 — 이름 줄 · 사는 곳 · 한 장면 제목 · 한 장면 글이 차례로 떠오른다 */}
       {p.opened && (
         <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 64, paddingHorizontal: 20, paddingBottom: 20 }}>
@@ -369,8 +416,9 @@ const PersonCard = memo(function PersonCard({ p, i, w, h, compact, live, focused
             {p.verified && <CertBadge size={24} hi={p.hiCert} onPhoto />}
           </Animated.View>
           {!!p.region && (
-            <Animated.View style={[{ marginTop: 4 }, rise(lines[1])]}>
-              <Text numberOfLines={1} style={[{ fontSize: 14, lineHeight: 21, letterSpacing: -0.2, color: W88 }, TEXT_SHADOW]}>{p.region}</Text>
+            <Animated.View style={[{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }, rise(lines[1])]}>
+              <FactIcon name="pin" size={16} color={W88} />
+              <Text numberOfLines={1} style={[{ flexShrink: 1, fontSize: 14, lineHeight: 21, letterSpacing: -0.2, color: W88 }, TEXT_SHADOW]}>{p.region}</Text>
             </Animated.View>
           )}
           {!!p.scene && (
@@ -442,8 +490,9 @@ function Pill({ d }: { d: PillDef }) {
   );
 }
 
-function ActionRow({ item, onReveal, onProfile, onLetter }: {
+function ActionRow({ item, onReveal, onProfile, onLetter, balance, onNext, nextIsBalancePerson }: {
   item: Item; onReveal: (id: string) => boolean; onProfile: (id: string) => void; onLetter: (id: string) => void;
+  balance?: BalanceProps; onNext: () => void; nextIsBalancePerson: boolean;
 }) {
   // 열어보기 → 프로필 보기/알약: 옛 줄이 살짝 가라앉으며 사라지고(150ms 뒤 180ms) 새 줄이 10 아래에서 떠오른다(300ms부터 320ms)
   const v = useRef(new Animated.Value(1)).current;
@@ -470,7 +519,13 @@ function ActionRow({ item, onReveal, onProfile, onLetter }: {
   }, [holdReady, v]);
 
   let body: React.ReactNode = null;
-  if (item.kind === 'pending') {
+  if (item.kind === 'balance' && balance) {
+    // 표지: [열어보기] · 뒤집힌 뒤: 버튼 없이 카드를 눌러 고른다 · 고른 뒤: 소개받은 인연으로 넘어가기
+    if (!balance.opened) body = <Button block size="L" label="열어보기" onPress={balance.onOpen} />;
+    else if (balance.pick) body = nextIsBalancePerson
+      ? <Button block size="L" label="같은 쪽을 고른 인연 만나기" onPress={onNext} />
+      : <Button block size="L" disabled label="오늘은 소개할 사람이 없어요" />;
+  } else if (item.kind === 'pending') {
     body = <Button block size="L" disabled label={`${item.c.hour}:00에 열어볼 수 있어요`} />;
   } else if (item.kind === 'person') {
     const p = item.p;

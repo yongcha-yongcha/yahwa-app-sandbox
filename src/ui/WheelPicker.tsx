@@ -76,7 +76,7 @@ function Column({ col, k, index, onIndex, off }: {
 }
 
 // stepKey: 같은 시트 안에서 내용이 바뀔 때(지역 1단계 → 2단계) 바꿔 주면 휠을 새로 그린다
-export function WheelSheet({ open, onClose, title, caption, columns, doneLabel = '선택 완료', back, secondary, onDone, isDisabled, stepKey }: {
+export function WheelSheet({ open, onClose, title, caption, columns, doneLabel = '선택 완료', back, secondary, onDone, isDisabled, invalid, stepKey }: {
   open: boolean;
   onClose: () => void;
   title: string;
@@ -87,6 +87,7 @@ export function WheelSheet({ open, onClose, title, caption, columns, doneLabel =
   secondary?: { label: string; onPress: () => void };   // 주 버튼 아래 글자 버튼(예: 취향 지역 '이 지역 빼기')
   onDone: (values: (string | number)[]) => void;
   isDisabled?: (column: number, value: string | number, now: (string | number)[]) => boolean;   // 없는 날(2월 30일)처럼 흐리게 둘 값
+  invalid?: (now: (string | number)[]) => string | null;   // 고를 수 없는 자리면 그 이유 — 설명 줄을 빨간 글자로 바꾸고 [선택 완료]를 끈다
   stepKey?: string | number;
 }) {
   const start = () => columns.map((c) => Math.max(0, c.values.findIndex((v) => v.value === c.current)));
@@ -100,6 +101,7 @@ export function WheelSheet({ open, onClose, title, caption, columns, doneLabel =
   if (st.key !== key) { idx = start(); live.current = idx.slice(); if (commit.current) clearTimeout(commit.current); setSt({ key, idx }); }
   const valuesOf = (ix: number[]) => columns.map((c, k) => c.values[ix[k] ?? 0]?.value);
   const now = valuesOf(idx);
+  const why = invalid?.(now) ?? null;
   // 멈춘 뒤(마지막으로 줄이 바뀐 뒤 120ms) 한 번만 다시 그린다 — 굵은 글자 · 없는 날 흐림이 그때 바뀐다
   const onIndex = (k: number, i: number) => {
     live.current[k] = i;
@@ -109,7 +111,8 @@ export function WheelSheet({ open, onClose, title, caption, columns, doneLabel =
   return (
     <BottomSheet open={open} onClose={onClose} grabber={false} scroll={false}>
       <Text accessibilityRole="header" style={{ fontSize: 18, lineHeight: 25.2, fontWeight: '600', color: colors.text }}>{title}</Text>
-      {!!caption && <Text style={{ marginTop: 4, fontSize: 13, lineHeight: 20.8, color: colors.sub }}>{caption}</Text>}
+      {why ? <Text accessibilityLiveRegion="polite" style={{ marginTop: 4, fontSize: 13, lineHeight: 20.8, fontWeight: '500', color: colors.danger }}>{why}</Text>
+        : !!caption && <Text style={{ marginTop: 4, fontSize: 13, lineHeight: 20.8, color: colors.sub }}>{caption}</Text>}
       {back ? (
         <Pressable onPress={back.onPress} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, marginLeft: -6, minHeight: 44, paddingRight: 8, flexDirection: 'row', alignItems: 'center', gap: 2 }}>
           <Icon name="chevron-left" size={20} color={colors.textSecondary} />
@@ -127,7 +130,7 @@ export function WheelSheet({ open, onClose, title, caption, columns, doneLabel =
         <LinearGradient pointerEvents="none" colors={['#FFFFFF', 'rgba(255,255,255,0)']} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: ROW * 1.5 }} />
         <LinearGradient pointerEvents="none" colors={['rgba(255,255,255,0)', '#FFFFFF']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: ROW * 1.5 }} />
       </View>
-      <Button label={doneLabel} size="dock" onPress={() => onDone(valuesOf(live.current))} style={{ marginTop: 12 }} />
+      <Button label={doneLabel} size="dock" disabled={!!why} onPress={() => { const v = valuesOf(live.current); if (!invalid?.(v)) onDone(v); }} style={{ marginTop: 12 }} />
       {!!secondary && (
         <Pressable onPress={secondary.onPress} accessibilityRole="button" style={{ marginTop: 6, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
           {({ pressed }) => <Text style={{ fontSize: 14, lineHeight: 20, fontWeight: '500', color: pressed ? colors.text : colors.sub }}>{secondary.label}</Text>}
