@@ -58,7 +58,8 @@ export type DiscoveryPerson = {
   opened: boolean;                       // 홈에서 연 카드(선명한 사진)
   hour: number | null;                   // 공개 시각(12·15·18·21) — 없으면 추가 소개 · 보너스로 받은 사람
   extra?: 'paid' | 'bonus' | 'balance' | null;
-  balanceChip?: string | null;           // 오늘의 밸런스로 소개받은 사람 — 카드에 '같이 {칩}'
+  balanceChip?: string | null;           // 오늘의 밸런스에 참여한 사람 — 고른 답 칩('부먹파')
+  balanceSame?: boolean;                 // 내 답과 같음 — '같이 부먹파'
   region?: string | null;
   scene?: string | null;                 // "이 사람의 한 장면" — 소개 한 토막
   verified?: boolean; hiCert?: boolean;  // 본인 인증 / 학력 · 직장 · 소득 인증 있음
@@ -318,7 +319,7 @@ function arriveText(p: DiscoveryPerson) {
   return p.extra === 'bonus' ? '보너스로 도착한 인연' : '새로 도착한 인연';
 }
 const E = ease.out;
-const CARD_FIELDS = ['id', 'name', 'age', 'photo', 'opened', 'hour', 'extra', 'balanceChip', 'region', 'scene', 'verified', 'hiCert'] as const;
+const CARD_FIELDS = ['id', 'name', 'age', 'photo', 'opened', 'hour', 'extra', 'balanceChip', 'balanceSame', 'region', 'scene', 'verified', 'hiCert'] as const;
 const PersonCard = memo(function PersonCard({ p, i, w, h, compact, live, focused, onPress }: {
   p: DiscoveryPerson; i: number; w: number; h: number; compact: boolean; live: boolean; focused: boolean; onPress: (i: number) => void;
 }) {
@@ -412,12 +413,12 @@ const PersonCard = memo(function PersonCard({ p, i, w, h, compact, live, focused
           )}
         </Animated.View>
       )}
-      {/* 오늘의 밸런스로 소개받은 사람 — 위 가운데 '같이 부먹파' 칩 */}
+      {/* 오늘의 밸런스 참여자 — 위 가운데 고른 답 칩(내 답과 같으면 '같이 부먹파') */}
       {!!p.balanceChip && (
-        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 16, alignItems: 'center' }}>
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: veil && !!arriveText(p) ? 50 : 16, alignItems: 'center' }}>
           <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.92)' }}>
             <ScaleMark tilt={p.balanceChip} />
-            <Text style={{ fontSize: 13, lineHeight: 18, fontWeight: '700', color: colors.text }}>같이 {p.balanceChip}</Text>
+            <Text style={{ fontSize: 13, lineHeight: 18, fontWeight: '700', color: colors.text }}>{p.balanceSame ? `같이 ${p.balanceChip}` : p.balanceChip}</Text>
           </View>
         </View>
       )}

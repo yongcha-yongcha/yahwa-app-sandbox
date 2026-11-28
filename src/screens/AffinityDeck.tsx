@@ -229,6 +229,7 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
 
   // 사람 카드 — 공개 시간이 지난 카드는 '열기 전'(흐린 사진), 홈에서 열면 '연 뒤'(선명한 사진). 비회원은 늘 열기 전
   const letters = lettersQ.data;
+  const myBalanceChip = useMyBalance(batchK).data?.chip ?? null;
   const people = useMemo<DiscoveryPerson[]>(() => deck.map((p) => {
     const i = batch.findIndex((b) => b.user_id === p.user_id);
     const hour = i >= 0 && i < BATCH_SIZE ? SLOT_HOURS[Math.floor(i / 2)] : null;
@@ -251,7 +252,9 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
       opened: !isGuest && (revealedIds.has(p.user_id) || viewedIds.has(p.user_id)),
       hour,
       extra: (p as DeckRow).extra ?? null,
-      balanceChip: (p as DeckRow).extra === 'balance' ? (p as DeckRow).balance_chip ?? null : null,   // 홈 칩은 밸런스로 새로 소개된 사람에게만
+      // 오늘의 밸런스에 참여한 사람은 고른 답 칩('부먹파') — 내 답과 같으면 '같이 부먹파'
+      balanceChip: (p as DeckRow).balance_chip ?? null,
+      balanceSame: !!myBalanceChip && (p as DeckRow).balance_chip === myBalanceChip,
       region: regionText(p.region),
       scene: sceneOf(p),
       verified: !!p.basic_verified,
@@ -260,7 +263,7 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
     };
   // flow.alreadySent는 관심 목록(pairs와 같은 쿼리)과 방금 보낸 낙관적 기록을 읽는다 — pairs가 바뀌면 함께 다시 계산된다
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [deck, batch, pairs, letters, revealedIds, viewedIds, isGuest]);
+  }), [deck, batch, pairs, letters, revealedIds, viewedIds, isGuest, myBalanceChip]);
 
   // 오늘의 밸런스(1번 인연 앞 칸) — 표지를 열면 뒤집히고, 고르면 같은 쪽을 고른 한 사람이 바로 다음 칸에 온다
   const balanceLook = useBalanceLook();
