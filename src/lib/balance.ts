@@ -33,6 +33,8 @@ export function usePickBalance() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['balance'] });
       qc.invalidateQueries({ queryKey: ['my-deck'] });
+      qc.invalidateQueries({ queryKey: ['friend-profile'] });
+      qc.invalidateQueries({ queryKey: ['friend-profiles'] });
     },
   });
 }

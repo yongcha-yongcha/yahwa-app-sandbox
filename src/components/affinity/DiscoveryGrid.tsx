@@ -78,6 +78,7 @@ export type BalanceProps = {
   pick: BalanceSide | '';
   date: string;
   busy: boolean;
+  introId: string | null;      // 고른 답으로 소개받은 사람(없으면 null)
   onOpen: () => void;
   onPick: (side: BalanceSide) => void;
 };
@@ -108,8 +109,21 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
   const step = cardW + GAP;
   // 순서: 공개된 슬롯 → 아직 안 열린 시간대 → 추가 소개 · 보너스로 받은 사람(시안: 8장 뒤, 마지막 카드 앞) → 더 소개받기
   // 오늘의 밸런스는 맨 앞 칸(1번 인연보다 앞) — 첫 화면은 1번 인연에서 시작하고, 왼쪽으로 넘겨야 밸런스가 나온다.
-  // 밸런스로 소개받은 사람은 밸런스 카드 바로 다음(1번 인연 앞)에 붙는다.
+  // 고르면 '같은 쪽 사람을 찾았어요'를 잠깐 보여 준 뒤, 그 자리(밸런스 칸)가 소개받은 사람 카드로 바뀐다.
   const hasBalance = !!balance;
+  const [introHold, setIntroHold] = useState(false);
+  const prevPick = useRef(balance?.pick ?? '');
+  useEffect(() => {
+    const p = balance?.pick ?? '';
+    const just = !!p && !prevPick.current;
+    prevPick.current = p;
+    if (!just) return;
+    setIntroHold(true);
+    const t = setTimeout(() => setIntroHold(false), reduceMotion() ? 600 : 1400);
+    return () => clearTimeout(t);
+  }, [balance?.pick]);
+  const introP = balance?.introId ? people.find((p) => p.id === balance.introId && p.extra === 'balance') : undefined;
+  const showIntro = !!introP && !introHold;
   const ordered = useMemo<Item[]>(() => {
     const person = (p: DiscoveryPerson): Item => ({ kind: 'person', key: `p:${p.id}`, p });
     const list: Item[] = [
@@ -118,11 +132,11 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
       ...people.filter((p) => p.hour == null && p.extra !== 'balance').map(person),
       { kind: 'more', key: 'more' },
     ];
-    if (hasBalance) list.unshift({ kind: 'balance', key: 'balance' }, ...people.filter((p) => p.extra === 'balance').map(person));
+    if (hasBalance) list.unshift(showIntro && introP ? person(introP) : { kind: 'balance', key: 'balance' });
     return list;
-  }, [people, pending, hasBalance]);
+  }, [people, pending, hasBalance, showIntro, introP]);
   // 처음 보여 줄 칸 — 1번 인연(밸런스 칸들 다음)
-  const startIndex = hasBalance ? 1 + people.filter((p) => p.extra === 'balance').length : 0;
+  const startIndex = hasBalance ? 1 : 0;
   const balanceIndex = ordered.findIndex((it) => it.kind === 'balance');
 
   useEffect(() => { setDeckUnseen(people.some((p) => !p.opened)); }, [people]);
@@ -150,21 +164,6 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
     else if (it.kind === 'pending') onPending(it.c.hour);
     else if (it.kind === 'balance' && balance && !balance.opened) balance.onOpen();
   };
-  // 밸런스를 고르면 '같은 쪽 사람을 찾았어요'를 잠깐 보여 준 뒤, 소개받은 사람 카드로 바로 넘어간다
-  const prevPick = useRef(balance?.pick ?? '');
-  const advanceWanted = useRef(false);
-  useEffect(() => {
-    const p = balance?.pick ?? '';
-    if (p && !prevPick.current && indexMemo.index === balanceIndex) advanceWanted.current = true;
-    prevPick.current = p;
-  }, [balance?.pick]);  // eslint-disable-line react-hooks/exhaustive-deps
-  const introIndex = balanceIndex >= 0 && ordered[balanceIndex + 1]?.kind === 'person' && (ordered[balanceIndex + 1] as { p: DiscoveryPerson }).p.extra === 'balance' ? balanceIndex + 1 : -1;
-  useEffect(() => {
-    if (!advanceWanted.current || introIndex < 0) return;
-    advanceWanted.current = false;
-    const t = setTimeout(() => { if (indexMemo.index === balanceIndex) goTo(introIndex); }, 1400);
-    return () => clearTimeout(t);
-  }, [introIndex, balance?.pick]);  // eslint-disable-line react-hooks/exhaustive-deps
   // 시연도구 '밸런스 카드로 가기'
   const focusReq = useBalanceFocusReq();
   useEffect(() => { if (focusReq && balanceIndex >= 0) goTo(balanceIndex); }, [focusReq]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -220,8 +219,7 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
           onProfile={onProfile}
           onLetter={onLetter}
           balance={balance}
-          onNext={() => goTo(Math.min(index + 1, ordered.length - 1))}
-          nextIsBalancePerson={ordered[index + 1]?.kind === 'person' && (ordered[index + 1] as { p: DiscoveryPerson }).p.extra === 'balance'}
+          introComing={!!balance?.introId}
         />
       </View>
     </View>
@@ -505,9 +503,9 @@ function Pill({ d }: { d: PillDef }) {
   );
 }
 
-function ActionRow({ item, onReveal, onProfile, onLetter, balance, onNext, nextIsBalancePerson }: {
+function ActionRow({ item, onReveal, onProfile, onLetter, balance, introComing }: {
   item: Item; onReveal: (id: string) => boolean; onProfile: (id: string) => void; onLetter: (id: string) => void;
-  balance?: BalanceProps; onNext: () => void; nextIsBalancePerson: boolean;
+  balance?: BalanceProps; introComing: boolean;
 }) {
   // 열어보기 → 프로필 보기/알약: 옛 줄이 살짝 가라앉으며 사라지고(150ms 뒤 180ms) 새 줄이 10 아래에서 떠오른다(300ms부터 320ms)
   const v = useRef(new Animated.Value(1)).current;
@@ -535,11 +533,9 @@ function ActionRow({ item, onReveal, onProfile, onLetter, balance, onNext, nextI
 
   let body: React.ReactNode = null;
   if (item.kind === 'balance' && balance) {
-    // 표지: [열어보기] · 뒤집힌 뒤: 버튼 없이 카드를 눌러 고른다 · 고른 뒤: 소개받은 인연으로 넘어가기
-    if (!balance.opened) body = <Button block size="L" label="열어보기" onPress={balance.onOpen} />;
-    else if (balance.pick) body = nextIsBalancePerson
-      ? <Button block size="L" label="같은 쪽을 고른 인연 만나기" onPress={onNext} />
-      : <Button block size="L" disabled label="오늘은 소개할 사람이 없어요" />;
+    // 표지: [열어보기] · 뒤집힌 뒤: 버튼 없이 카드를 눌러 고른다 · 고른 뒤: 이 자리가 소개받은 사람 카드로 바뀐다(그 사이엔 비워 둔다)
+    if (!balance.opened && !balance.pick) body = <Button block size="L" label="열어보기" onPress={balance.onOpen} />;
+    else if (balance.pick && !introComing) body = <Button block size="L" disabled label="오늘은 소개할 사람이 없어요" />;
   } else if (item.kind === 'pending') {
     body = <Button block size="L" disabled label={`${item.c.hour}:00에 열어볼 수 있어요`} />;
   } else if (item.kind === 'person') {

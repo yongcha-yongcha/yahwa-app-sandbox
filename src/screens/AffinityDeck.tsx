@@ -251,7 +251,7 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
       opened: !isGuest && (revealedIds.has(p.user_id) || viewedIds.has(p.user_id)),
       hour,
       extra: (p as DeckRow).extra ?? null,
-      balanceChip: (p as DeckRow).balance_chip ?? null,
+      balanceChip: (p as DeckRow).extra === 'balance' ? (p as DeckRow).balance_chip ?? null : null,   // 홈 칩은 밸런스로 새로 소개된 사람에게만
       region: regionText(p.region),
       scene: sceneOf(p),
       verified: !!p.basic_verified,
@@ -272,6 +272,7 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
   const balance: BalanceProps = {
     look: balanceLook,
     opened: balanceOpenedLocal,   // 앱을 새로 열면 늘 표지부터(이미 골랐으면 [열어보기]로 뒤집어 결과를 본다)
+    introId: myBalance.data?.profile_id ?? null,
     pick: balancePick,
     date: `${Number(bm)}월 ${Number(bd)}일`,
     busy: pickMut.isPending,

@@ -299,7 +299,7 @@ export function FriendDetail({
         {/* 받은 편지 — 편지 알림으로 들어와도 바로 보이게 맨 위 */}
         {incoming && <IncomingLetterCard letter={incoming} onAccept={() => acceptLetter(incoming)} onDecline={() => setDeclineFor(incoming)} />}
         <View onLayout={(e) => { bodyY.current = e.nativeEvent.layout.y; }}>
-          <MatchProfile p={toFullProfile(p as any)} width={contentW} like={isMe ? null : likeChip} balanceChip={isMe ? null : sameBalanceChip} onNameY={(y) => { nameY.current = y; }} />
+          <MatchProfile p={toFullProfile(p as any)} width={contentW} like={isMe ? null : likeChip} balanceChip={isMe ? null : ((p as any).balance_chip ?? sameBalanceChip)} onNameY={(y) => { nameY.current = y; }} />
         </View>
       </ScrollView>
 

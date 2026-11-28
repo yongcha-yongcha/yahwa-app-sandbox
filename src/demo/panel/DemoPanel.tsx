@@ -34,6 +34,13 @@ function go(t: DemoNavTarget | null, setMsg: (s: string) => void) {
   if (!meta.signedIn) { setSignedIn(true); setTimeout(run, 600); } else run();
 }
 
+// 처음 상태로 — 목업 DB와 함께 이 기기에 남은 기록(연 카드 · 본 프로필 · 웰컴 · 팝업 등 'yahwa'로 시작하는 값)을 모두 지우고 새로 연다
+function resetEverything() {
+  resetDb();
+  try { Object.keys(localStorage).filter((k) => k.startsWith('yahwa')).forEach((k) => localStorage.removeItem(k)); } catch { /* noop */ }
+  window.location.reload();
+}
+
 const KIND_LABEL: Record<string, string> = { rpc: '함수', select: '읽기', insert: '쓰기', update: '수정', delete: '삭제', upsert: '쓰기', auth: '로그인', storage: '사진', function: '서버함수', fetch: '서버주소' };
 
 export function DemoPanel() {
@@ -43,6 +50,7 @@ export function DemoPanel() {
   const [msg, setMsg] = useState('상황을 고르면 여기에 결과가 보여요.');
   const [open, setOpen] = useState<Record<string, boolean>>({ screens: true, balance: true, account: true, scenarios: true, log: false });
   const look = useBalanceLook();
+  const [confirmReset, setConfirmReset] = useState(false);
   const u = me();
   const blocked = log.filter((l) => l.note?.startsWith('차단')).length;
   const missing = log.filter((l) => l.missing);
@@ -78,7 +86,11 @@ export function DemoPanel() {
       </header>
 
       <div className="ydp-foot ydp-foot-top">
-        <button className="ydp-reset" onClick={() => { if (window.confirm('목업 데이터를 처음 상태로 되돌릴까요? 이 브라우저에서 쓴 글·편지·좋아요가 지워져요.')) { resetDb(); try { localStorage.removeItem('yahwa_welcome_seen'); } catch { /* noop */ } window.location.reload(); } }}>처음 상태로 되돌리기</button>
+        <button className="ydp-reset" onClick={() => {
+          // 확인 창(confirm)은 막혀 있는 브라우저가 있어 버튼을 두 번 누르게 한다
+          if (!confirmReset) { setConfirmReset(true); setTimeout(() => setConfirmReset(false), 4000); return; }
+          resetEverything();
+        }}>{confirmReset ? '한 번 더 누르면 처음으로 돌아가요' : '처음 상태로 되돌리기'}</button>
         <div className="ydp-note">쓴 글·댓글·좋아요·편지는 이 브라우저에만 저장돼요.</div>
       </div>
       <div className="ydp-msg" role="status">{msg}</div>
