@@ -271,16 +271,13 @@ function DeckInner({ onOpenProfile, onOpenCharge }: { onOpenProfile?: (userId: s
   const [, bm, bd] = batchK.split('-');
   const balance: BalanceProps = {
     look: balanceLook,
-    opened: balanceOpenedLocal,   // 앱을 새로 열면 늘 표지부터(이미 골랐으면 [열어보기]로 뒤집어 결과를 본다)
+    opened: balanceOpenedLocal || !!balancePick,   // 참여 전엔 늘 표지부터, 참여한 뒤엔 결과 면 그대로
     introId: myBalance.data?.profile_id ?? null,
     pick: balancePick,
     date: `${Number(bm)}월 ${Number(bd)}일`,
     busy: pickMut.isPending,
     onOpen: () => { if (requireAuth('오늘의 밸런스는 로그인 후 할 수 있어요')) setBalanceOpened(batchK, true); },
-    onPick: (k) => pickMut.mutate(k, {
-      onSuccess: (r) => { if (!r?.profile_id) previewActions.showToast('오늘은 같은 쪽 사람을 찾지 못했어요.', 2200); },
-      onError: () => previewActions.showToast('잠시 후 다시 시도해주세요', 2200),
-    }),
+    onPick: (k) => pickMut.mutate(k, { onError: () => previewActions.showToast('잠시 후 다시 시도해주세요', 2200) }),
   };
 
   // 카드 높이(Home Fit) — 버튼 줄(12 + 52 + 12 + 16)과 하단 메뉴를 뺀 높이 전부. 폭의 1.65배까지만(남으면 그 사이 가운데)

@@ -108,22 +108,11 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
   const cardW = Math.max(240, width - SIDE * 2);
   const step = cardW + GAP;
   // 순서: 공개된 슬롯 → 아직 안 열린 시간대 → 추가 소개 · 보너스로 받은 사람(시안: 8장 뒤, 마지막 카드 앞) → 더 소개받기
-  // 오늘의 밸런스는 맨 앞 칸(1번 인연보다 앞) — 첫 화면은 1번 인연에서 시작하고, 왼쪽으로 넘겨야 밸런스가 나온다.
-  // 고르면 '같은 쪽 사람을 찾았어요'를 잠깐 보여 준 뒤, 그 자리(밸런스 칸)가 소개받은 사람 카드로 바뀐다.
+  // 오늘의 밸런스는 맨 앞 칸(1번 인연보다 앞) — 첫 화면은 1번 칸에서 시작하고, 왼쪽으로 넘겨야 밸런스가 나온다.
+  // 고르면 같은 쪽을 고른 사람이 1번 칸(밸런스 바로 다음)에 생기고, '같은 쪽 사람을 찾았어요'를 잠깐 보여 준 뒤 그 카드로 넘어간다.
+  // 밸런스 카드는 참여한 뒤에도 결과 면 그대로 남는다(아래 줄에 '내일 또 만나요').
   const hasBalance = !!balance;
-  const [introHold, setIntroHold] = useState(false);
-  const prevPick = useRef(balance?.pick ?? '');
-  useEffect(() => {
-    const p = balance?.pick ?? '';
-    const just = !!p && !prevPick.current;
-    prevPick.current = p;
-    if (!just) return;
-    setIntroHold(true);
-    const t = setTimeout(() => setIntroHold(false), reduceMotion() ? 600 : 1400);
-    return () => clearTimeout(t);
-  }, [balance?.pick]);
   const introP = balance?.introId ? people.find((p) => p.id === balance.introId && p.extra === 'balance') : undefined;
-  const showIntro = !!introP && !introHold;
   const ordered = useMemo<Item[]>(() => {
     const person = (p: DiscoveryPerson): Item => ({ kind: 'person', key: `p:${p.id}`, p });
     const list: Item[] = [
@@ -132,9 +121,9 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
       ...people.filter((p) => p.hour == null && p.extra !== 'balance').map(person),
       { kind: 'more', key: 'more' },
     ];
-    if (hasBalance) list.unshift(showIntro && introP ? person(introP) : { kind: 'balance', key: 'balance' });
+    if (hasBalance) list.unshift({ kind: 'balance', key: 'balance' }, ...(introP ? [person(introP)] : []));
     return list;
-  }, [people, pending, hasBalance, showIntro, introP]);
+  }, [people, pending, hasBalance, introP]);
   // 처음 보여 줄 칸 — 1번 인연(밸런스 칸들 다음)
   const startIndex = hasBalance ? 1 : 0;
   const balanceIndex = ordered.findIndex((it) => it.kind === 'balance');
@@ -164,6 +153,20 @@ export function DiscoveryDeck({ people, pending, batchKey, width, cardHeight, mo
     else if (it.kind === 'pending') onPending(it.c.hour);
     else if (it.kind === 'balance' && balance && !balance.opened) balance.onOpen();
   };
+  // 방금 골랐으면 — 소개받은 사람이 1번 칸에 생기면 잠깐 뒤 그 카드로 넘어간다
+  const prevPick = useRef(balance?.pick ?? '');
+  const advanceWanted = useRef(false);
+  useEffect(() => {
+    const p = balance?.pick ?? '';
+    if (p && !prevPick.current) advanceWanted.current = true;
+    prevPick.current = p;
+  }, [balance?.pick]);
+  useEffect(() => {
+    if (!advanceWanted.current || !introP || balanceIndex < 0) return;
+    advanceWanted.current = false;
+    const t = setTimeout(() => { if (indexMemo.index === balanceIndex) goTo(balanceIndex + 1); }, reduceMotion() ? 600 : 1400);
+    return () => clearTimeout(t);
+  }, [introP?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
   // 시연도구 '밸런스 카드로 가기'
   const focusReq = useBalanceFocusReq();
   useEffect(() => { if (focusReq && balanceIndex >= 0) goTo(balanceIndex); }, [focusReq]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -533,9 +536,16 @@ function ActionRow({ item, onReveal, onProfile, onLetter, balance, introComing }
 
   let body: React.ReactNode = null;
   if (item.kind === 'balance' && balance) {
-    // 표지: [열어보기] · 뒤집힌 뒤: 버튼 없이 카드를 눌러 고른다 · 고른 뒤: 이 자리가 소개받은 사람 카드로 바뀐다(그 사이엔 비워 둔다)
+    // 표지: [열어보기] · 뒤집힌 뒤: 버튼 없이 카드를 눌러 고른다 · 고른 뒤: 다음 질문 안내 한 줄(정오에 새 질문)
     if (!balance.opened && !balance.pick) body = <Button block size="L" label="열어보기" onPress={balance.onOpen} />;
-    else if (balance.pick && !introComing) body = <Button block size="L" disabled label="오늘은 소개할 사람이 없어요" />;
+    else if (balance.pick) {
+      const when = kstHour() < 12 ? '오늘 12시' : '내일 12시';
+      body = (
+        <View style={{ height: 52, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.textSecondary }}>{introComing ? `${when}, 새 질문으로 또 만나요` : `오늘은 같은 쪽 사람이 없어요 · ${when}에 또 만나요`}</Text>
+        </View>
+      );
+    }
   } else if (item.kind === 'pending') {
     body = <Button block size="L" disabled label={`${item.c.hour}:00에 열어볼 수 있어요`} />;
   } else if (item.kind === 'person') {
